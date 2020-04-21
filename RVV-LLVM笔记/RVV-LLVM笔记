@@ -1,0 +1,508 @@
+
+### LLVM的Intrinsics函数及其实现
+Frank Wang
+Frank Wang
+Compiler , 深度学习, AI芯片, Android, 医学影像
+​关注他
+23 人赞同了该文章
+原创文章，转载请注明出处。
+
+作者：汪岩
+
+
+
+#  1. 什么是Intrinsic函数
+
+Intrinsic函数是编译器内建的函数，由编译器提供，类似于内联函数。但与内联函数不同的是，因为Intrinsic函数是编译器提供，而编译器与硬件架构联系紧密，因此编译器知道如何利用硬件能力以最优的方式实现这些功能。通常函数的代码是inline插入，避免函数调用开销。LLVM支持Intrinsic函数的概念。这些函数的名称和语义可以是预先定义，也可以自定义，要求遵守特定的约定。在有些情况下，可能会调用库函数。例如，在参考文献[1]中列出的函数，都是调用libc。总的来说，这些Intrinsic函数代表了LLVM语言的一种扩展机制，当添加到语言中时，不要求改变LLVM的任何转化过程。对其它编译器，Intrinsic函数也称为内建函数。
+
+在LLVM中，Intrinsic函数一般是在IR级代码优化时引入的，也就是由前端产生。也可以在程序代码中写Intrinsic函数，并通过前端直接发射。这些函数名的前缀一般是保留字“llvm.”。LLVM后端选择用最高效的形式将Intrinsic函数转换给硬件执行，可以将Intrinsic函数拆分为一系列机器指令，也可以映射为单独一条机器指令，并直接调用相应的硬件功能。下文中会针对这两种情况给出实例。
+
+Intrinsic函数一般是外部函数，开发者不能在自己的代码中实现函数体，而只能调用这些Intrinsic函数。获得Intrinsic函数的地址是非法的。
+
+# 1. 输出Intrinsic函数
+
+以下举例说明LLVM如何通过其Intrinsic函数优化特定部分代码。
+
+#include<string.h>
+
+int foo(void){
+
+char str[10] = "str";
+
+return 0;
+
+}
+
+由Clang生产的LLVM IR如下：
+
+define i32 @foo() #0 {
+
+entry:
+
+%str = alloca [10 x i8], align 1
+
+%0 = bitcast [10 x i8]* %str to i8*
+
+call void @llvm.memcpy.p0i8.p0i8.i64(i8* %0, i8* getelementptr inbounds ([10 x i8]* @foo.str, i32 0, i32 0), i64 10, i32 1, i1 false)
+
+ret i32 0
+
+}
+
+其中，llvm.memcpy就是clang输出的Intrinsic函数。如果LLVM没有定义llvm.memcpy，相应的内存操作LLVM IR代码就应该是一系列 "store constant into str[0..3]"内存访问指令，而这些指令通常都是极耗时的。LLVM后端可将llvm.memcpy拆分为一系列高效机器指令，也可以映射为一条特定的机器指令，直接调用硬件的内存操作功能。
+
+再举一例。
+
+int func()
+
+{
+
+int a[5];
+
+for (int i = 0; i != 5; ++i)
+
+a[i] = 0;
+
+return a[0];
+
+}
+
+使用Clang生成未经优化的IR代码，其中不包括任何Intrinsic函数。
+
+define dso_local i32 @_Z4funcv() #0 {
+
+entry:
+
+%a = alloca [5 x i32], align 16
+
+%i = alloca i32, align 4
+
+store i32 0, i32* %i, align 4
+
+br label %for.cond
+
+for.cond: ; preds = %for.inc, %entry
+
+%0 = load i32, i32* %i, align 4
+
+%cmp = icmp ne i32 %0, 5
+
+br i1 %cmp, label %for.body, label %for.end
+
+for.body: ; preds = %for.cond
+
+%1 = load i32, i32* %i, align 4
+
+%idxprom = sext i32 %1 to i64
+
+%arrayidx = getelementptr inbounds [5 x i32], [5 x i32]* %a, i64 0, i64 %idxprom
+
+store i32 0, i32* %arrayidx, align 4
+
+br label %for.inc
+
+for.inc: ; preds = %for.body
+
+%2 = load i32, i32* %i, align 4
+
+%inc = add nsw i32 %2, 1
+
+store i32 %inc, i32* %i, align 4
+
+br label %for.cond
+
+for.end: ; preds = %for.cond
+
+%arrayidx1 = getelementptr inbounds [5 x i32], [5 x i32]* %a, i64 0, i64 0
+
+%3 = load i32, i32* %arrayidx1, align 16
+
+ret i32 %3
+
+}
+
+然后使用opt工具对IR做O1级别优化，得到IR如下：
+
+define i32 @_Z4funcv() #0 {
+
+…
+
+call void @llvm.memset.p0i8.i64(i8* %a2, i8 0, i64 20, i32 16, i1 false)
+
+其中重要的优化是调用Intrinsic函数 llvm.memset.p0i8.i64为数组填0。Intrinsic函数也能用来实现代码的向量化和并行化，从而生成更优化的代码。比如，可以调用libc中最优化版本的memset。
+
+有些Intrinsic函数可以重载，比如表示相同操作，但数据类型不同的一族函数。重载通常用来使Intrinsic函数可以在任何整数类型上操作。一个或多个参数类型或结果类型可以被重载以接受任何整数类型。
+
+被重载的Intrinsic函数名中会包括重载的参数类型，函数名中的每一个参数类型前会有一个句点。只有被重载的类型才会有名称后缀。例如，llvm.ctpop函数参数是任意宽度的整数，并且返回相同整型宽度的整数。这会引出一族函数，例如i8 @llvm.ctpop.i8(i8 %val) and i29 @llvm.ctpop.i29(i29 %val). 其中都只有一种类型被重载，函数名中也只有一种类型后缀，如.i8和.i29。以为参数类型和返回值类型匹配，二者在函数名中共用一个名称后缀。
+
+# 2. 如何定义新Intrinsic函数
+
+在使用LLVM过程中，开发者也许需要对LLVM做定制。这时需要在LLVM中添加代码，可能是一个基础类型，可能是一个新Intrinsic函数，或者是新的指令。对LLVM做扩展需要很大的工作量，涉及更新扩展时要用到的所有pass。而增加一个Intrinsic函数远比增加指令容易，并且对优化pass是透明的。如果开发者要增加的功能可以表示成函数调用，Intrinsic函数是一个不错的可选方法。
+
+要增加intrinsic函数，首先要在LLVM框架中定义该函数，还有可能要在clang中注册该函数，这样前端才能支持在c代码中使用这个intrinsic函数。这样就可能修改从前端到后端各个不同层次的代码。下例是在自定义后端中实现用自定义Intrinsic函数取代NVVM Intrinsic函数。
+
+已知有如下NVVM Intrinsic函数，这些 Intrinsic函数是用于支持读PTX特殊寄存器：
+
+i32 @llvm.nvvm.read.ptx.sreg.tid.x()
+
+i32 @llvm.nvvm.read.ptx.sreg.tid.y()
+
+i32 @llvm.nvvm.read.ptx.sreg.tid.z()
+
+i32 @llvm.nvvm.read.ptx.sreg.ntid.x()
+
+i32 @llvm.nvvm.read.ptx.sreg.ntid.y()
+
+i32 @llvm.nvvm.read.ptx.sreg.ntid.z()
+
+i32 @llvm.nvvm.read.ptx.sreg.ctaid.x()
+
+i32 @llvm.nvvm.read.ptx.sreg.ctaid.y()
+
+i32 @llvm.nvvm.read.ptx.sreg.ctaid.z()
+
+i32 @llvm.nvvm.read.ptx.sreg.nctaid.x()
+
+i32 @llvm.nvvm.read.ptx.sreg.nctaid.y()
+
+i32 @llvm.nvvm.read.ptx.sreg.nctaid.z()
+
+i32 @llvm.nvvm.read.ptx.sreg.warpsize()
+
+这些Intrinsic函数在.ll中的调用形式如下：
+
+define <target>_kernel void @nvvm_read_ptx_sreg_tid_x() #0 {
+
+...
+
+%tid.x = call i32 @llvm.nvvm.read.ptx.sreg.tid.x()
+
+...
+
+ret void
+
+}
+
+declare i32 @llvm.nvvm.read.ptx.sreg.tid.x()
+
+.ll文件中的函数可以调用这类Intrinsic，但要在.ll文件中用”declare“声明。这时，Intrinsic函数的实现可以在另一个.ll文件中。或者在某个lib中。
+
+如果希望用自定义Intrinsic函数取代NVVM Intrinsic函数，则需要先定义自定义Intrinsic函数。假设希望用 Intrinsic int_<target>_workitem_id取代llvm.nvvm.read.ptx.sreg.tid ，Intrinsic int_<target>_workitem_id定义如下：
+
+a. llvm/include/llvm/IR/Intrinsics<target>.td:
+
+如果在llvm/include/llvm/IR/路径下没有与自定义backend对应的 Intrinsics<target>.td文件，可以拷贝已有backend的td文件，然后在其上修改，这是一个比较快捷的方法。增加对应的td文件后，不要忘记在Intrinsics.td中包含自定义backend的td文件，以便框架知道td文件的存在。
+
+include "llvm/IR/Intrinsics<target>.td"
+
+在td文件中增加自定义Intrinsic函数入口，描述Intrinsic函数的内存访问优化特性（这控制Intrinsic函数是否会被死代码消除、公共子表达式消除等）。任何使用llvm_any*_ty类型的Intrinsic函数会被tblgen认为重载，并在Intrinsic函数名中增加后缀。
+
+下例中，Intrinsic<...>中的内容是对函数签名，描述该intrinsic应该如何被调用。签名包括三个部分：返回类型、参数类型和一组标志。这组标志提示了在优化时应该如何处理这个intrinsic。
+
+class <target>ReadPreloadRegisterIntrinsic
+
+: Intrinsic<[llvm_i32_ty], [], [IntrNoMem, IntrSpeculatable]>;
+
+multiclass <target>ReadPreloadRegisterIntrinsic_xyz {
+
+def _x : <target>ReadPreloadRegisterIntrinsic;
+
+def _y : <target>ReadPreloadRegisterIntrinsic;
+
+def _z : <target>ReadPreloadRegisterIntrinsic;
+
+}
+
+let TargetPrefix = "<target>" in {
+
+...
+
+defm int_<target>_workitem_id : <target>ReadPreloadRegisterIntrinsic_xyz;
+
+class <target>AtomicIncIntrin : Intrinsic<[llvm_anyint_ty],
+
+[llvm_anyptr_ty,
+
+LLVMMatchType<0>,
+
+llvm_i32_ty, // ordering
+
+llvm_i32_ty, // scope
+
+llvm_i1_ty], // isVolatile
+
+[IntrArgMemOnly, NoCapture<0>], "",
+
+[SDNPMemOperand]
+
+>;
+
+def int_<target>_atomic_load_add_f32 : <target>AtomicIncIntrin;
+
+LLVM定义Intrinsic函数借用了GCC builtin，如下例中的GCCBuiltin<"__nvvm_read_ptx_ sreg_" # regname # "_x">;。
+
+b llvm/include/llvm/IR/IntrinsicsNVVM.td
+
+// Accessing special registers.
+
+multiclass PTXReadSRegIntrinsic_v4i32<string regname> {
+
+// def _r64 : Intrinsic<[llvm_i128_ty], [], [IntrNoMem]>;
+
+// def _v4i16 : Intrinsic<[llvm_v4i32_ty], [], [IntrNoMem]>;
+
+def _x : Intrinsic<[llvm_i32_ty], [], [IntrNoMem]>,
+
+GCCBuiltin<"__nvvm_read_ptx_sreg_" # regname # "_x">;
+
+def _y : Intrinsic<[llvm_i32_ty], [], [IntrNoMem]>,
+
+GCCBuiltin<"__nvvm_read_ptx_sreg_" # regname # "_y">;
+
+def _z : Intrinsic<[llvm_i32_ty], [], [IntrNoMem]>,
+
+GCCBuiltin<"__nvvm_read_ptx_sreg_" # regname # "_z">;
+
+def _w : Intrinsic<[llvm_i32_ty], [], [IntrNoMem]>,
+
+GCCBuiltin<"__nvvm_read_ptx_sreg_" # regname # "_w">;
+
+}
+
+...
+
+defm int_nvvm_read_ptx_sreg_tid : PTXReadSRegIntrinsic_v4i32<"tid">;
+
+def int_nvvm_atomic_load_add_f32 : Intrinsic<[llvm_float_ty],
+
+[LLVMAnyPointerType<llvm_float_ty>, llvm_float_ty],
+
+[IntrArgMemOnly, NoCapture<0>]>;
+
+c. 在.ll文件llvm/test/CodeGen/<target>/*intrinsics.ll中增加测试用例：
+
+; Check that nvvm intrinsics are replaced with <target> intrinsics
+
+; RUN: opt -<target>-lower-intrinsics -S < %s | FileCheck %s --check-prefix=CHECK
+
+; CHECK-LABEL: @nvvm_read_ptx_sreg_tid_x
+
+define <target>_kernel void @nvvm_read_ptx_sreg_tid_x() #0 {
+
+; CHECK: @llvm.<target>.workitem.id.x()
+
+%tid.x = call i32 @llvm.nvvm.read.ptx.sreg.tid.x()
+
+ret void
+
+}
+
+declare i32 @llvm.nvvm.read.ptx.sreg.tid.x()
+
+d. 在LowerIntrinsics pass中替换intrinsics函数，实现代码位于文件 llvm/lib/Target/<target>/<target>LowerIntrinsics.cpp中：
+
+bool lowerNVVMIntrinsics(CallInst *CI);
+
+/// This function is used to replace NVVM intrinsics with <TARGET> instrinsics
+
+bool <target>LowerIntrinsics::lowerNVVMIntrinsics(CallInst *CI) {
+
+IRBuilder<> Builder(CI);
+
+const Function *Callee = CI->getCalledFunction();
+
+if (!Callee) {
+
+return false;
+
+}
+
+CallSite CS(CI);
+
+switch (Callee->getIntrinsicID()) {
+
+case Intrinsic::nvvm_read_ptx_sreg_tid_x:
+
+replaceCallWithIntrinsic(Intrinsic::<target>_workitem_id_x, CI, CS.arg_begin(),
+
+CS.arg_end());
+
+return true;
+
+…
+
+default:
+
+return false;
+
+}
+
+}
+
+/// 在此函数中将NVVM intrinsic函数转为自定义intrinsic函数 ：
+
+template <class ArgIt>
+
+static CallInst *replaceCallWithIntrinsic(Intrinsic::ID Intrinsic, CallInst *CI,
+
+ArgIt ArgBegin, ArgIt ArgEnd) {
+
+IRBuilder<> Builder(CI->getParent(), CI->getIterator());
+
+SmallVector<Value *, 8> Args(ArgBegin, ArgEnd);
+
+CallInst *NewCI = NULL;
+
+if (Args.empty()) {
+
+NewCI = Builder.CreateIntrinsic(Intrinsic);
+
+} else {
+
+NewCI = Builder.CreateIntrinsic(Intrinsic, Args);
+
+}
+
+NewCI->setName(CI->getName());
+
+if (!CI->use_empty())
+
+CI->replaceAllUsesWith(NewCI);
+
+CI->eraseFromParent();
+
+return NewCI;
+
+}
+
+调用opt工具，执行如下命令：
+
+bin/opt -<target>-lower-intrinsics -S ../test/CodeGen/<target>/nvvmintrinsics.ll
+
+输出如下：
+
+; ModuleID = '../test/CodeGen/<target>/nvvmintrinsics.ll'
+
+source_filename = "../test/CodeGen/<target>/nvvmintrinsics.ll"
+
+; Function Attrs: nounwind
+
+define <target>_kernel void @nvvm_read_ptx_sreg_tid_x() #0 {
+
+%tid.x1 = call i32 @llvm.<target>.workitem.id.x()
+
+ret void
+
+}
+
+可见，函数体中的” %tid.x = call i32 @llvm.nvvm.read.ptx.sreg.tid.x()“已经替换为”%tid.x1 = call i32 @llvm.<target>.workitem.id.x()“。
+
+e.在lllvm/lib/Target/<target>/<target>ISelLowering.cpp
+
+将PTX Intrinsic函数转换成自定义Intrinsic函数后，还要实现自定义Intrinsic函数的具体功能。在这个例子中，就是要实现@llvm.<target>.workitem.id.x()。
+
+SDValue <TARGET>TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) {
+
+…
+
+case ISD::INTRINSIC_WO_CHAIN:
+
+return LowerINTRINSIC_WO_CHAIN(Op, DAG);
+
+…
+
+}
+
+SDValue <TARGET>TargetLowering::LowerINTRINSIC_WO_CHAIN(...){
+
+...
+
+switch (IntrinsicID) {
+
+...
+
+case Intrinsic::<target>_workitem_id_x: {
+
+return loadInputValue(DAG, &<target>::VGPR_32RegClass, MVT::i32,
+
+SDLoc(DAG.getEntryNode()),
+
+MFI->getArgInfo().WorkItemIDX);
+
+}
+
+…
+
+下例说明为了支持AI模型中的relu激活函数，需要在LLVM中做的修改。首先要在ISA定义中增加向量relu指令，并在编译器中提供相应的Intrinsic函数支持。这个例子说明了Intrinsic函数重载的用法，实现过程如下：
+
+a. 在llvm/include/llvm/IR/Intrinsics<target>.td中添加Intrinsic函数定义，其中支持i32、i16、f32、f16四种不同数据类型的relu操作:
+
+def int_<target>_m_relu_i32 : GCCBuiltin<"__builtin_<target>_m_relu_i32">,
+
+Intrinsic<[llvm_i32_ty], [llvm_i32_ty], [IntrConvergent]>;
+
+def int_<target>_m_relu_i16 : GCCBuiltin<"__builtin_<target>_m_relu_i16">,
+
+Intrinsic<[llvm_i16_ty], [llvm_i16_ty], [IntrConvergent]>;
+
+def int_<target>_m_relu_f32 : GCCBuiltin<"__builtin_<target>_m_relu_f32">,
+
+Intrinsic<[llvm_float_ty], [llvm_float_ty], [IntrConvergent]>;
+
+def int_<target>_m_relu_f16 : GCCBuiltin<"__builtin_<target>_m_relu_f16">,
+
+Intrinsic<[llvm_half_ty], [llvm_half_ty], [IntrConvergent]>;
+
+b.在目标平台的指令定义文件<target>Instruction.td中增加向量relu指令定义：
+
+let hasSideEffects = 1, mayStore = 1, mayLoad = 1 in {
+
+def V_RELU_I32 : MLOP1p_i32<"v_relu_i32",
+
+[(set i32:$vdst, (int_<target>_m_relu_i32 i32:$src0))]
+
+>;
+
+def V_RELU_I16 :MLOP1p_i16<"v_relu_i16",
+
+[(set i16:$vdst, (int_<target>_m_relu_i16 i16:$src0))]
+
+>;
+
+def V_RELU_F32 : MLOP1p_f32<"v_relu_f32",
+
+[(set f32:$vdst, (int_<target>_m_relu_f32 f32:$src0))]
+
+>;
+
+def V_RELU_F16 : MLOP1p_f16<"v_relu_f16",
+
+[(set f16:$vdst, (int_<target>_m_relu_f16 f16:$src0))]
+
+>;
+
+}
+
+与Intrinsic函数定义相应，ISA指令定义也支持i32、i16、f32、f16四种不同数据类型的relu操作。
+
+c. 在测试用例test/Codegen/<target>/relu.ll中实现调用relu Intrinsic函数的代码（仅以i32数据类型为例）：
+
+declare i32 @llvm.<target>.m.relu.i32(i32)
+
+…
+
+define void @test(i32 addrspace(1)* %out, i32 %in) {
+
+%res = call i32 @llvm.<target>.m.relu.i32(i32 %in)
+
+store i32 %res, i32 addrspace(1)* %out, align 4
+
+ret void
+
+}
+
+参考文献
+
+【1】https://llvm.org/docs/ExtendingLLVM.html#intrinsic-function
+
+编辑于 2019-04-06
