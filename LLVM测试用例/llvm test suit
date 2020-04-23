@@ -1,1 +1,380 @@
+LLVM测试框架
+Frank Wang
+Frank Wang
+Compiler , 深度学习, AI芯片, Android, 医学影像
+已关注
+15 人赞同了该文章
+原创文章，转载请注明出处。
 
+作者：汪岩
+
+
+
+1. LLVM测试框架简介
+
+在LLVM编译器后端开发过程中，针对特定平台必然要定义特定指令集及其指令格式，并对后端流程的各个阶段或pass做相应修改。根据需求编写测试用例的测试驱动开发（Test-Driven Development，简称TDD）是推动开发进行的有效方法，可以在出现问题时实现可回溯，有助于编写简洁可用和高质量的代码。LLVM测试框架是在LLVM编译器后端开发过程中实现测试驱动开发的有效手段，有很高的灵活性和健壮性，可保证加速开发过程稳步进行。
+
+本文涵盖LLVM测试框架，需要用到的工具，以及如何增加和运行测试用例。LLVM测试框架主要包括两类：回归测试和整体程序测试。回归测试代码位于LLVM代码库llvm/test路径下。这些用例应在每次提交前运行通过。整体程序测试也称为LLVM测试套件（LLVM test suite）。
+
+· 回归测试
+
+回归测试是测试LLVM特定功能或触发LLVM特定bug的一小段代码。这些代码用什么语言依赖于被测试LLVM部分用什么语言。这些测试用例由LLVM lit测试工具驱动，用例代码位于llvm/test。
+
+· 测试套件
+
+测试套件包含完整程序，程序代码通常用高级语言如C/C++，可以编译链接进某个可执行程序。这些程序有用户特定编译器编译，然后执行捕获程序输出和时序信息。这些输出和参考输出比较以确保程序编译正确。
+
+除了编译和执行程序，完整程序测试还可作为LLVM性能基准，包括衡量程序生成效率和LLVM编译速度、优化和代码生成。
+
+· 调试信息测试
+
+测试套件包括检查调试信息质量的用例。这些用例用C或LLVM汇编语言写成。这些测试用例在某调试器下编译或运行。通过检查调试器输出可评估调试信息。更详细信息参见测试套件下的Readme.txt。
+
+本文重点介绍回归测试。若要运行所有的LLVM回归测试用例，可使用check-llvm：
+
+% make check-llvm
+
+若要运行单个测试用例，或某个测试子集，可以使用llvm-lit脚本，llvm-lit是作为LLVM一部分编译生成。例如，若要运行AMDGPU的add.i16.ll测试用例，可以执行如下命令：
+
+user@user:~/project/llvm/llvm/build$ bin/llvm-lit ../test/CodeGen/AMDGPU/add.i16.ll
+
+输出如下：
+
+-- Testing: 1 tests, 1 threads --
+
+PASS: LLVM :: CodeGen/AMDGPU/add.i16.ll (1 of 1)
+
+Testing Time: 0.64s
+
+Expected Passes : 1
+
+也可以运行整个AMDGPU的CodeGen测试用例：
+
+user@user:~/project/llvm/llvm/build$ bin/llvm-lit ../test/CodeGen/AMDGPU
+
+输出如下：
+
+-- Testing: 1085 tests, 8 threads --
+
+PASS: LLVM :: CodeGen/AMDGPU/GlobalISel/amdgpu-irtranslator.ll (1 of 1085)
+
+PASS: LLVM :: CodeGen/AMDGPU/GlobalISel/inst-select-fptoui.mir (2 of 1085)
+
+PASS: LLVM :: CodeGen/AMDGPU/GlobalISel/inst-select-bitcast.mir (3 of 1085)
+
+PASS: LLVM :: CodeGen/AMDGPU/GlobalISel/inst-select-constant.mir (4 of 1085)
+
+… …
+
+PASS: LLVM :: CodeGen/AMDGPU/spill-alloc-sgpr-init-bug.ll (1084 of 1085)
+
+PASS: LLVM :: CodeGen/AMDGPU/vgpr-spill-emergency-stack-slot-compute.ll (1085 of 1085)
+
+Testing Time: 144.37s
+
+********************
+
+Failing Tests (4):
+
+LLVM :: CodeGen/AMDGPU/call-encoding.ll
+
+LLVM :: CodeGen/AMDGPU/hsa-func.ll
+
+LLVM :: CodeGen/AMDGPU/hsa.ll
+
+LLVM :: CodeGen/AMDGPU/nop-data.ll
+
+Expected Passes : 1076
+
+Expected Failures : 5
+
+Unexpected Failures: 4
+
+lit工具的用法参见https://llvm.org/docs/CommandGuide/lit.html。
+
+2. 如何产生新测试用例
+
+LLVM回归测试框架尽管简单，但仍需要设置一些信息。这些配置信息写在特定文件中。为了使回归测试工作，每个测试目录下都有一个lit.local.cfg文件. llvm-lit会根据这个文件决定如何运行测试。AMDGPU测试目录下的lit.local.cfg文件内容如下。如果用户要增加一个新的测试文件夹，只需要将lit.local.cfg文件拷贝到新文件夹下。
+
+if not 'AMDGPU' in config.root.targets:
+
+config.unsupported = True
+
+下面以实例说明测试用例编写方法。这个例子非常简单，函数体中没有具体功能，直接返回。指定检查前缀为”FUNC”。
+
+; RUN: llc -mcpu=gfx* -march=<target> --verify-machineinstrs < %s | FileCheck -enable-var-scope -check-prefixes=FUNC %s
+
+; FUNC: {{^}}kernel0:
+
+; FUNC: %bb.0:
+
+; FUNC-NEXT: s_endpgm
+
+define <target>_kernel void @kernel0(i32* %out, i32 %in) align 256 {
+
+entry:
+
+ret void
+
+}
+
+每个测试文件的第一行都以“RUN:”开始，称为RUN指令行，这告诉lit如何运行这个文件。RUN指令行如果没有“RUN“，lit将报错。“RUN:”后的部分是lit运行测试要执行的脚本。RUN指令行的语法类似shell pipeline语法，包括I/O重定向和变量替换。RUN指令行由lit解释。每一行RUN指令行都单独执行，除非最后是“\”字符。lit会替换变量并安排pipeline执行。如果pipeline中的任何过程失败，整个用例就算失败。应该尽量使RUN指令行保持简单，只用来跑工具产生文本输出供检查。
+
+RUN指令行中的“--verify-machineinstrs”用于启动机器码验证器（Machine Code Verifier）对指令的操作数数量、物理或虚拟寄存器操作数的寄存器类、寄存器生存期进行检查。
+
+RUN指令行中的“%s”用于替换测试用例源码文件路径，即将如下命令行中的路径“../../test/MC /ELF/foo_test.s”作为输入传给LLVM工具：
+
+bin/llvm-lit ../../test/MC/ELF/foo_test.s
+
+除了%s，RUN指令行中还执行以下替换：
+
+%%：用单个%替换，可以转义其它替换；
+
+%S（大写S）：测试用例目录路径，例如：/home/user/llvm/test/MC/ELF。
+
+%t：本测试用例中用到的临时文件名的文件路径。这个文件名不会和其它测试用例冲突。如果需要多个临时文件，可以加上%t，可用于表示重定向输出目的文件。
+
+更多指令替换请参见文献[1]。
+
+LLVM测试框架中检查输出的推荐方法是使用FileCheck工具看测试是否通过。RUN指令行中的“-check-prefixes=FUNC”是指定FileCheck工具的匹配模式前缀选项“-check-prefixes” ，默认为“CHECK:”。此处通过“-check-prefixes=FUNC”可以选择自定义的前缀选项“FUNC”。FileCheck工具将在下文介绍。
+
+用llc编译上例的.ll文件，产生的相应汇编代码如下：
+
+kernel0: ; @kernel0
+
+; %bb.0: ; %entry
+
+s_endpgm
+
+运行llvm-lit的结果是“FUNC:”和“FUNC-NEXT:”指令都可以通过，因为指令检查的内容与汇编代码相符。
+
+但如果在IR函数中只增加一条指令“store volatile i32 0, i32* %out”，代码如下：
+
+define <target>_kernel void @kernel0(i32* %out, i32 %in) align 256 {
+
+entry:
+
+store volatile i32 0, i32* %out
+
+ret void
+
+}
+
+由llc产生的相应汇编代码如下：
+
+kernel0: ; @kernel0
+
+; %bb.0: ; %entry
+
+s_load_dwordx2 s[0:1], s[0:1], 0x9
+
+v_mov_b32_e32 v2, 0
+
+s_waitcnt lgkmcnt(0)
+
+v_mov_b32_e32 v0, s0
+
+v_mov_b32_e32 v1, s1
+
+flat_store_dword v[0:1], v2
+
+s_endpgm
+
+运行llvm-lit结果将报错，因为以上“FUNC:”和“FUNC-NEXT:”指令不能通过。原因是“%bb.0: ”和“s_endpgm”之间增加了多条指令，“s_endpgm”已经不再是紧跟在“%bb.0: ”之后。
+
+但是如果增加如下检查指令“; FUNC-NEXT: s_waitcnt lgkmcnt(0)”：
+
+; RUN: llc -mcpu=gfx700 -march=<target> --verify-machineinstrs < %s | FileCheck -enable-var-scope -check-prefixes=FUNC %s
+
+; FUNC: {{^}}kernel0:
+
+; FUNC: v_mov_b32_e32 v{{[0-9]+}}, 0
+
+; FUNC-NEXT: s_waitcnt lgkmcnt(0)
+
+; FUNC: s_endpgm
+
+再运行llvm-lit，这个case就可以通过了，因为从汇编代码中可以看到， 指令s_waitcnt的确是紧接在指令 v_mov_b32_e32之后。
+
+在实际编写测试用例时，LLVM开发文档文档中建议将相关的测试用例放到一个文件中，而不是每个测试都有一个单独的文件。但这带来的问题是出错时不易定位文件中的哪个用例出错导致整个文件测试失败。所以，文件的测试用例粒度需要根据实际需要把握。另外，在根据需求编写新用例前，应检查已有文件是否覆盖了新需求的特性。应首先考虑在已有测试用例文件中增加新代码而不是生成一个新文件。
+
+3. FileCheck工具用法
+
+FileCheck工具一般用于回归测试，由RUN指令行调用。FileCheck命令格式如下：
+
+FileCheck match-filename [–check-prefix=XXX] [–strict-whitespace]
+
+FileCheck读入两个文件，一个从标准输入，一个从命令行，并使用其中一个文件验证另一个文件。这个方式对test suite特别有用，test suite就是想验证某些工具的输出，例如llc。这类似于grep的功能，但对匹配一个文件中特定顺序的多个不同输入做了优化。如果FileCheck验证文件与期望内容匹配，返回0；否则，产生错误，返回非0值。
+
+选项“match-filename”指定了包含匹配模式的文件。除非使用了—input-file选项，否则要验证的文件从标准输入读取。
+
+选项“--check-prefix”指定匹配模式前缀。FileCheck在match-filename指定的文件中查找匹配模式。默认情况下，这些模式的前缀是“CHECK:”。如果想使用不同的前缀，--check-prefix参数允许开发者指定一个或多个前缀。多个前缀对测试有帮助，这些前缀在不同运行选项时可以改变，但大部分行保持不变。
+
+简单例子如下：
+
+; RUN: llvm-as < %s | llc -march=x86-64 | FileCheck %s
+
+这个例子的意思是，将当前文件（用%s代替）作为参数传递给llvm-as，将其输出作为参数传递给llc，再将llc输出作为参数传递给FileCheck。也就是说，FileCheck会根据文件名参数指定的文件（由%s指定的.ll文件）验证标准输入（即llc的输出）。通过。ll文件中RUN指令行后接下来的部分可以更清楚FileCheck的工作过程：
+
+define void @sub1(i32* %p, i32 %v) {
+
+entry:
+
+; CHECK: sub1:
+
+; CHECK: subl
+
+%0 = tail call i32 @llvm.atomic.load.sub.i32.p0i32(i32* %p, i32 %v)
+
+ret void
+
+}
+
+define void @inc4(i64* %p) {
+
+entry:
+
+; CHECK: inc4:
+
+; CHECK: incq
+
+%0 = tail call i64 @llvm.atomic.load.add.i64.p0i64(i64* %p, i64 1)
+
+ret void
+
+}
+
+其中可以看到几条“CHECK:”指令行。从这里可以看到文件如何传给llam-as，然后再传给llc，而输出的机器码就是我们正在验证的。llvm-as是LLVM汇编器，以.ll文件中的LLVM IR为输入，输出为LLVM bitcode格式。llc是静态编译器，这里的llc输入是前面的llvm-as输出的bitcode格式IR，输出是汇编代码。FileCheck检查汇编代码输出，验证汇编代码与“CHECK:”行指定的内容匹配。
+
+“CHECK:” 指令行的语法非常简单：其中的字符串必须按顺序出现。FileCheck默认忽略空白，但“CHECK:”行的内容需要与测试文件中的内容完全匹配。
+
+FileCheck的一个好处是允许测试用例合并为逻辑组。例如，上例中是检查“sub1:”和“inc4:”两个标签。除非在这两个标签中间有一个“subl”标签，否则不会匹配。如果“subl”标签在文件中的其它地方也不行。
+
+“-check-prefix” 选项允许在一个.ll文件中驱动多个测试配置。这在很多场合有用，例如，用llc测试不同框架。示例如下：
+
+; RUN: llvm-as < %s | llc -mtriple=i686-apple-darwin9 -mattr=sse41 \
+
+; RUN: | FileCheck %s -check-prefix=X32
+
+; RUN: llvm-as < %s | llc -mtriple=x86_64-apple-darwin9 -mattr=sse41 \
+
+; RUN: | FileCheck %s -check-prefix=X64
+
+define <4 x i32> @pinsrd_1(i32 %s, <4 x i32> %tmp) nounwind {
+
+%tmp1 = insertelement <4 x i32>; %tmp, i32 %s, i32 1
+
+ret <4 x i32> %tmp1
+
+; X32: pinsrd_1:
+
+; X32: pinsrd $1, 4(%esp), %xmm0
+
+; X64: pinsrd_1:
+
+; X64: pinsrd $1, %edi, %xmm0
+
+}
+
+这个用例中，当“mtriple“选项为”i686-apple-darwin9“时，FileCheck检查汇编代码输出是否与“X32:”行指定的内容匹配；当“mtriple“选项为“x86_64-apple-darwin9“时，FileCheck检查汇编代码输出是否与“X64:”行指定的内容匹配，从而可以测试32bit和64bit后端能否生成期望的代码。
+
+比较常用的指令还有：
+
+· “CHECK-NEXT:”指令
+
+这条指令在上节的示例中用到过。有些情况下需要编写能检测几条连续指令是否正确的测试用例，两条连续指令中间不能插入其它指令，否则用例失败。这时可以使用“CHECK:”和“CHECK-NEXT:”指令。如果指定了一个定制检查前缀（check prefix），就可以使用“<PREFIX>-NEXT:”，也就是将“CHECK-NEXT:”中的CHECK换成定制前缀。示例如下：
+
+define void @t2(<2 x double>* %r, <2 x double>* %A, double %B) {
+
+%tmp3 = load <2 x double>* %A, align 16
+
+%tmp7 = insertelement <2 x double> undef, double %B, i32 0
+
+%tmp9 = shufflevector <2 x double> %tmp3,
+
+<2 x double> %tmp7,
+
+<2 x i32> < i32 0, i32 2 >
+
+store <2 x double> %tmp9, <2 x double>* %r, align 16
+
+ret void
+
+; CHECK: t2:
+
+; CHECK: movl 8(%esp), %eax
+
+; CHECK-NEXT: movapd (%eax), %xmm0
+
+; CHECK-NEXT: movhpd 12(%esp), %xmm0
+
+; CHECK-NEXT: movl 4(%esp), %eax
+
+; CHECK-NEXT: movapd %xmm0, (%eax)
+
+; CHECK-NEXT: ret
+
+}
+
+在上例中，除非在前一个指令和当前“CHECK-NEXT:”指令之间正好有新一行，否则前“CHECK-NEXT:”指令会拒绝输入。CHECK-NEXT:”指令不能是文件中的第一条指令。
+
+· “CHECK-LABEL:”指令
+
+有时候文件文件中包括多个测试用例或测试函数，这些用例实际是不同逻辑块。如果不做处理，为某一个测试函数指定的一个或多个“CHECK:”指令可能与后面的测试函数输出匹配成功，而遗漏本该检测的错误。虽然也许最终会产生错误，但标记为导致错误的“CHECK:”指令实际上可能与问题的真正来源没有任何关系。
+
+为了使错误信息更准确，可以使用“CHECK-LABEL:”指令。除了FileCheck另外假设”CHECK-LABEL:”指令匹配的行不能匹配match-filename选项指定文件中的任何其他检查，这个”CHECK-LABEL:”指令会被当做CHECK指令同样对待。
+
+从概念上说，“CHECK-LABEL:”将输入流分成不同的块，每一个块单独处理，防止一个块中的“CHECK:”指令与另一个块中的某一行匹配。这里的块通常是指测试文件中的测试函数。因此，“CHECK-LABEL:”指令通常出现在每个测试函数体的起始位置，示例如下：
+
+define %struct.C* @C_ctor_base(%struct.C* %this, i32 %x) {
+
+entry:
+
+; CHECK-LABEL: C_ctor_base:
+
+; CHECK: mov [[SAVETHIS:r[0-9]+]], r0
+
+; CHECK: bl A_ctor_base
+
+; CHECK: mov r0, [[SAVETHIS]]
+
+%0 = bitcast %struct.C* %this to %struct.A*
+
+%call = tail call %struct.A* @A_ctor_base(%struct.A* %0)
+
+%1 = bitcast %struct.C* %this to %struct.B*
+
+%call2 = tail call %struct.B* @B_ctor_base(%struct.B* %1, i32 %x)
+
+ret %struct.C* %this
+
+}
+
+define %struct.D* @D_ctor_base(%struct.D* %this, i32 %x) {
+
+entry:
+
+; CHECK-LABEL: D_ctor_base:
+
+这个用例中使用“CHECK-LABEL：”指令可确保三个“CHECK：”指令仅接受与C_ctor_base函数体中相对应的行输出，即使这些模式可能与文件中稍后的函数（如上例中的D_ctor_base函数）输出的行匹配，FileCheck也不与认可。此外，如果这三个“CHECK：”指令中的一个失败，FileCheck将通过继续检查下一个块来恢复，从而允许在单个调用中检测到多个测试失败。
+其它FileCheck匹配指令参见文献[2]。
+
+所有FileCheck指令都采用某个模式匹配。在FileCheck的大多数用法中，固定字符串匹配就足够了。但某些时候，需要更灵活的匹配形式，例如汇编指令的操作数通常不固定，可能是不同的寄存器或立即数。为了支持这一点，FileCheck允许开发者在匹配的字符串中指定正则表达式，由双括号括起来：{{正则表达式}}。 FileCheck实现了一个POSIX正则表达式匹配器;它支持扩展POSIX正则表达式（ERE）。因为希望在大多数用例中使用固定字符串匹配，所以FileCheck被设计为支持混合和匹配固定字符串匹配与正则表达式。这允许开发者写如下代码：
+
+; CHECK: movhpd {{[0-9]+}}(%esp), {{%xmm[0-7]}}
+
+在这种情况下，允许ESP寄存器有任何偏移，并允许使用任何xmm寄存器。
+
+4. MC回归测试
+
+上述各节中的实例大部分是验证输出的汇编指令与检查指令是否匹配。各平台的汇编指令回归测试代码位于LLVM代码库llvm/test/Codegen路径下。与此相应，对汇编指令经过汇编器编译输出的二进制编码，也应该有测试用例和测试机制，验证输出的指令二进制编码与检查指令是否匹配，这些用例也应在每次提交前运行通过。LLVM提供的机器码测试用例在路径lvm/test/MC。下例是AMDGPU的测试用例：
+
+// RUN: llvm-mc -arch=amdgcn -mcpu=gfx900 -show-encoding %s | FileCheck -check-prefixes=GFX9 %s
+
+v_add_u32 v1, v2, v3
+
+// GFX9: v_add_u32_e32 v1, v2, v3 ; encoding: [0x02,0x07,0x02,0x68]
+
+有了上述知识，机器码的测试用例并不难理解。
+
+编辑于 2019-04-06
