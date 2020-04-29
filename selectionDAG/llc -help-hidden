@@ -1,0 +1,42 @@
+llc -help-hidden   -triple可以换成riscv32
+下面的clang-cc 命令名替换为clang -cc1
+clang-cc -emit-llvm -triple=i386-linux-gnu add.c 产生add.ll文件
+clang-cc -S -triple=i386-linux-gnu add.c 产生add.s文件
+llc -view-dag-combine1-dags add.ll
+llc -view-isel-dags add.ll
+llc -view-sched-dags add.ll
+
+在LLVM 3.8之前，LLVM的指令选择有两个，一个基于DAG覆盖的SelectionDAG，另外一个是FastISel。前者在-O方式启用，后则在-O0的时候启用。从3.8开始，后端增加了一个GlobalISel的指令选择器(基于自动macro expanding，其实和FastISel类似，只不过FastISel是手写指令匹配模式)。由于GlobalISel尚未完全成熟(LLVM 6.0仅完整支持ARM后端 ，所以仅基于SelectionDAG讨论后端流程。
+LLVM后端大致的工作流程如下所述
+1.	LLVM IR -> SelectionDAG[与机器无关的ISD操作符].
+2.	中间经过若干个DAGCombiner和DAGTypeLegalizer，DAGLegalizer(这些类的作用是将
+目标机器不支持的类型和DAG操作转换为目标机器支持的操作，同时删除部分冗余计算).
+3.	通过调用instructionSelect函数，变换过的SelectionDAG输入到指令选择器中，将
+机器无关的操作转换为机器支持的操作.
+4.	将第3步生成的SelectionDAG[仅使用目标机器支持的操作]输入到指令调度器中，指令调度器通过满足data, output, anti-, control约束依照SelectionDAG构造一个ScheduleDAG.
+5.	. 指令发射(instruction emit), 对ScheduleDAG进行拓扑排序，生成一个包含SUnit的Sequence列表，里面保存了最终的指令顺序流。然后遍历Sequence列表，依据每个SUnit中的SDNode的操作码得到TargetInstrInfo，然后调用buildMI生成一条MachineInstr，之后就是按照tii描述的操作数信息往mi中插入不同种类的操作数，比如：registerOperand将会创建一个虚拟寄存器，然后调用mi.addRegister()。然后把建立好的mi插入到对应的机器基本块MBB中。
+
+前置条件
+1.	在编译LLVM的时候，需要使用cmake -DLLVM_ENABLE_ASSERTIONS=ON才会启用view-dags等选项，这些选项下面会被用于查看输出的DAG图。
+2.	安装xdot等dot查看工具，Ubuntu可以使用sudo apt-get install xdot命令安装。
+3.	如果使用较新版本的LLVM，下面的clang-cc 命令名替换为clang -cc1。
+LLVM IR输入
+使用命令clang-cc -emit-llvm -triple=i386-linux-gnu add.c，生成的LLVM IR如下：
+然后调用SelectionDAGBuild类以基本块为单位构造一个SelectionDAG图，所有的alloca会被分配一个函数栈索引FrameIndex，然后构造一个对应的FrameIndexSDNode结点。store和load指令分别转换为ISD::store和ISD::load，add操作转换为ISD::add，ret会转换为X86ISD::RET_FLAG。
+SelectionDAG变换
+使用clang-cc -S -triple=i386-linux-gnu add.c -view-dag-combine1-dags 查看输出的DAG如下图所示：
+
+经过若干次combine, legalization等变换后，查看命令clang-cc -S -triple=i386-linux-gnu add.c -view-isel-dags. 生成的DAG图如下
+
+指令选择
+指令选择会调用InstructionSelect()函数，从root结点开始，从后往前遍历SDNode，进入X86GenDAGISel.inc:SelectCode函数，该函数会为SelectionDAG上的每个SDNode根据操作码调用相关的函数，然后将该子树替换成机器指令模式(此处会略过BasicBlock, Register, TargetConstant, TokenFactor, EntryToken, CopyFromReg,CopyToReg这些操作码)。如
+ISD::ADD会调用Select_ISD_ADD_i32()函数将该子树替换X86ISD::ADD32rr指令模版，ISD::LOAD会被替换为X86ISD::MOV32rm，ISD::Store指令会被替换为X86ISD::MOV32mr。当然由于此处未开启优化，所以add没有匹配X86ISD::ADD32rm模版。
+clang-cc -S -triple=i386-linux-gnu add.c -view-sched-dags，查看指令选择之后如图所示：
+
+指令调度
+使用命令clang-cc -S -triple=i386-linux-gnu add.c view-sunit-dags,
+查看最终经过ScheduleDAGSDFast指令调度器生成的ScheduleDAG如图所示：
+
+代码发射
+经过CodeEmit，最终生成的机器相关的machine basic block如下：
+上述的指令未经任何优化，所以生成的代码不是最优的。存在冗余的指令，并且没有利用X86的指令集优势(add操作可以使用内存操作数)，但是用于叙述原理是完全足够的
