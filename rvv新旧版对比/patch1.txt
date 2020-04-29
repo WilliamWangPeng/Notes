@@ -1,0 +1,2591 @@
+diff -y llvm/.arcconfig rvv-llvm-rvv-2018-11-01/.arcconfig
+{								{
+  "repository.callsign" : "L",					  "repository.callsign" : "L",
+  "conduit_uri" : "https://reviews.llvm.org/"			  "conduit_uri" : "https://reviews.llvm.org/"
+}								}
+Common subdirectories: llvm/benchmarks and rvv-llvm-rvv-2018-11-01/benchmarks
+Common subdirectories: llvm/bindings and rvv-llvm-rvv-2018-11-01/bindings
+diff -y llvm/.clang-format rvv-llvm-rvv-2018-11-01/.clang-format
+BasedOnStyle: LLVM						BasedOnStyle: LLVM
+
+diff -y llvm/.clang-tidy rvv-llvm-rvv-2018-11-01/.clang-tidy
+Checks: '-*,clang-diagnostic-*,llvm-*,misc-*,-misc-unused-par |	Checks: '-*,clang-diagnostic-*,llvm-*,misc-*,-misc-unused-par
+CheckOptions:							CheckOptions:
+  - key:             readability-identifier-naming.ClassCase	  - key:             readability-identifier-naming.ClassCase
+    value:           CamelCase					    value:           CamelCase
+  - key:             readability-identifier-naming.EnumCase	  - key:             readability-identifier-naming.EnumCase
+    value:           CamelCase					    value:           CamelCase
+  - key:             readability-identifier-naming.FunctionCa	  - key:             readability-identifier-naming.FunctionCa
+    value:           camelBack					    value:           camelBack
+  - key:             readability-identifier-naming.MemberCase	  - key:             readability-identifier-naming.MemberCase
+    value:           CamelCase					    value:           CamelCase
+  - key:             readability-identifier-naming.ParameterC	  - key:             readability-identifier-naming.ParameterC
+    value:           CamelCase					    value:           CamelCase
+  - key:             readability-identifier-naming.UnionCase	  - key:             readability-identifier-naming.UnionCase
+    value:           CamelCase					    value:           CamelCase
+  - key:             readability-identifier-naming.VariableCa	  - key:             readability-identifier-naming.VariableCa
+    value:           CamelCase					    value:           CamelCase
+
+Common subdirectories: llvm/cmake and rvv-llvm-rvv-2018-11-01/cmake
+diff -y llvm/CMakeLists.txt rvv-llvm-rvv-2018-11-01/CMakeLists.txt
+# See docs/CMake.html for instructions about how to build LLV	# See docs/CMake.html for instructions about how to build LLV
+
+cmake_minimum_required(VERSION 3.4.3)				cmake_minimum_required(VERSION 3.4.3)
+
+if(POLICY CMP0068)						if(POLICY CMP0068)
+  cmake_policy(SET CMP0068 NEW)					  cmake_policy(SET CMP0068 NEW)
+  set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)			  set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
+endif()								endif()
+
+if(POLICY CMP0075)					      <
+  cmake_policy(SET CMP0075 NEW)				      <
+endif()							      <
+							      <
+if(POLICY CMP0077)					      <
+  cmake_policy(SET CMP0077 NEW)				      <
+endif()							      <
+							      <
+if(NOT DEFINED LLVM_VERSION_MAJOR)				if(NOT DEFINED LLVM_VERSION_MAJOR)
+  set(LLVM_VERSION_MAJOR 10)				      |	  set(LLVM_VERSION_MAJOR 8)
+endif()								endif()
+if(NOT DEFINED LLVM_VERSION_MINOR)				if(NOT DEFINED LLVM_VERSION_MINOR)
+  set(LLVM_VERSION_MINOR 0)					  set(LLVM_VERSION_MINOR 0)
+endif()								endif()
+if(NOT DEFINED LLVM_VERSION_PATCH)				if(NOT DEFINED LLVM_VERSION_PATCH)
+  set(LLVM_VERSION_PATCH 0)					  set(LLVM_VERSION_PATCH 0)
+endif()								endif()
+if(NOT DEFINED LLVM_VERSION_SUFFIX)				if(NOT DEFINED LLVM_VERSION_SUFFIX)
+  set(LLVM_VERSION_SUFFIX svn)					  set(LLVM_VERSION_SUFFIX svn)
+endif()								endif()
+
+if (NOT PACKAGE_VERSION)					if (NOT PACKAGE_VERSION)
+  set(PACKAGE_VERSION						  set(PACKAGE_VERSION
+    "${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSI	    "${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSI
+endif()								endif()
+
+if ((CMAKE_GENERATOR MATCHES "Visual Studio") AND (CMAKE_GENE	if ((CMAKE_GENERATOR MATCHES "Visual Studio") AND (CMAKE_GENE
+  message(WARNING "Visual Studio generators use the x86 host 	  message(WARNING "Visual Studio generators use the x86 host 
+                  "default, even for 64-bit targets. This can	                  "default, even for 64-bit targets. This can
+                  "instability and out of memory errors. To u	                  "instability and out of memory errors. To u
+                  "host compiler, pass -Thost=x64 on the CMak	                  "host compiler, pass -Thost=x64 on the CMak
+endif()								endif()
+
+if (CMAKE_GENERATOR STREQUAL "Xcode" AND NOT CMAKE_OSX_ARCHIT <
+  # Some CMake features like object libraries get confused if <
+  # explicitly specify an architecture setting with the Xcode <
+  set(CMAKE_OSX_ARCHITECTURES "x86_64")			      <
+endif()							      <
+							      <
+project(LLVM							project(LLVM
+  VERSION ${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_	  VERSION ${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_
+  LANGUAGES C CXX ASM)						  LANGUAGES C CXX ASM)
+
+if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)	if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  message(STATUS "No build type selected, default to Debug")	  message(STATUS "No build type selected, default to Debug")
+  set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type (defa	  set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type (defa
+endif()								endif()
+
+							      >	# This should only apply if you are both on an Apple host, an
+							      >	if(CMAKE_HOST_APPLE AND APPLE)
+							      >	  # if CMAKE_LIBTOOL is not set, try and find it with xcrun o
+							      >	  if(NOT CMAKE_LIBTOOL)
+							      >	    if(NOT CMAKE_XCRUN)
+							      >	      find_program(CMAKE_XCRUN NAMES xcrun)
+							      >	    endif()
+							      >	    if(CMAKE_XCRUN)
+							      >	      execute_process(COMMAND ${CMAKE_XCRUN} -find libtool
+							      >	        OUTPUT_VARIABLE CMAKE_LIBTOOL
+							      >	        OUTPUT_STRIP_TRAILING_WHITESPACE)
+							      >	    endif()
+							      >
+							      >	    if(NOT CMAKE_LIBTOOL OR NOT EXISTS CMAKE_LIBTOOL)
+							      >	      find_program(CMAKE_LIBTOOL NAMES libtool)
+							      >	    endif()
+							      >	  endif()
+							      >
+							      >	  get_property(languages GLOBAL PROPERTY ENABLED_LANGUAGES)
+							      >	  if(CMAKE_LIBTOOL)
+							      >	    set(CMAKE_LIBTOOL ${CMAKE_LIBTOOL} CACHE PATH "libtool ex
+							      >	    message(STATUS "Found libtool - ${CMAKE_LIBTOOL}")
+							      >
+							      >	    execute_process(COMMAND ${CMAKE_LIBTOOL} -V
+							      >	      OUTPUT_VARIABLE LIBTOOL_V_OUTPUT
+							      >	      OUTPUT_STRIP_TRAILING_WHITESPACE)
+							      >	    if("${LIBTOOL_V_OUTPUT}" MATCHES ".*cctools-([0-9.]+).*")
+							      >	      string(REGEX REPLACE ".*cctools-([0-9.]+).*" "\\1" LIBT
+							      >	        ${LIBTOOL_V_OUTPUT})
+							      >	      if(NOT LIBTOOL_VERSION VERSION_LESS "862")
+							      >	        set(LIBTOOL_NO_WARNING_FLAG "-no_warning_for_no_symbo
+							      >	      endif()
+							      >	    endif()
+							      >
+							      >	    foreach(lang ${languages})
+							      >	      set(CMAKE_${lang}_CREATE_STATIC_LIBRARY
+							      >	        "\"${CMAKE_LIBTOOL}\" -static ${LIBTOOL_NO_WARNING_FL
+							      >	        <LINK_FLAGS> <OBJECTS> ")
+							      >	    endforeach()
+							      >	  endif()
+							      >
+							      >	  # If DYLD_LIBRARY_PATH is set we need to set it on archiver
+							      >	  if(DYLD_LIBRARY_PATH)
+							      >	    set(dyld_envar "DYLD_LIBRARY_PATH=${DYLD_LIBRARY_PATH}")
+							      >	    foreach(lang ${languages})
+							      >	      foreach(cmd ${CMAKE_${lang}_CREATE_STATIC_LIBRARY})
+							      >	        list(APPEND CMAKE_${lang}_CREATE_STATIC_LIBRARY_NEW
+							      >	             "${dyld_envar} ${cmd}")
+							      >	      endforeach()
+							      >	      set(CMAKE_${lang}_CREATE_STATIC_LIBRARY
+							      >	        ${CMAKE_${lang}_CREATE_STATIC_LIBRARY_NEW})
+							      >	    endforeach()
+							      >	  endif()
+							      >	endif()
+							      >
+# Side-by-side subprojects layout: automatically set the	# Side-by-side subprojects layout: automatically set the
+# LLVM_EXTERNAL_${project}_SOURCE_DIR using LLVM_ALL_PROJECTS	# LLVM_EXTERNAL_${project}_SOURCE_DIR using LLVM_ALL_PROJECTS
+# This allows an easy way of setting up a build directory for	# This allows an easy way of setting up a build directory for
+# one for llvm+clang+... using the same sources.		# one for llvm+clang+... using the same sources.
+set(LLVM_ALL_PROJECTS "clang;clang-tools-extra;compiler-rt;de |	set(LLVM_ALL_PROJECTS "clang;libcxx;libcxxabi;lldb;compiler-r
+set(LLVM_ENABLE_PROJECTS "" CACHE STRING			set(LLVM_ENABLE_PROJECTS "" CACHE STRING
+	"Semicolon-separated list of projects to build (${LLV		"Semicolon-separated list of projects to build (${LLV
+if( LLVM_ENABLE_PROJECTS STREQUAL "all" )			if( LLVM_ENABLE_PROJECTS STREQUAL "all" )
+  set( LLVM_ENABLE_PROJECTS ${LLVM_ALL_PROJECTS})		  set( LLVM_ENABLE_PROJECTS ${LLVM_ALL_PROJECTS})
+endif()								endif()
+							      |	foreach(proj ${LLVM_ENABLE_PROJECTS})
+# LLVM_ENABLE_PROJECTS_USED is `ON` if the user has ever used |	  set(PROJ_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../${proj}")
+# `LLVM_ENABLE_PROJECTS` CMake cache variable.  This exists f |	  if(NOT EXISTS "${PROJ_DIR}" OR NOT IS_DIRECTORY "${PROJ_DIR
+# several reasons:					      |	    message(FATAL_ERROR "LLVM_ENABLE_PROJECTS requests ${proj
+#							      |	  endif()
+# * As an indicator that the `LLVM_ENABLE_PROJECTS` list is n |	  string(TOUPPER "${proj}" upper_proj)
+# source of truth for which projects to build. This means we  |	  STRING(REGEX REPLACE "-" "_" upper_proj ${upper_proj})
+# supplied `LLVM_TOOL_<project>_BUILD` CMake cache variables  |	  set(LLVM_EXTERNAL_${upper_proj}_SOURCE_DIR   "${CMAKE_CURRE
+# them.							      |	  # There is a widely spread opinion that clang-tools-extra s
+#							      |	  # into clang. The following simulates it by always enabling
+# * The case where the user previously had `LLVM_ENABLE_PROJE |	  # when enabling clang.
+# non-empty list but now the user wishes to disable building  |	  if (proj STREQUAL "clang")
+# by setting `LLVM_ENABLE_PROJECTS` to an empty string. In th |	    set(LLVM_EXTERNAL_CLANG_TOOLS_EXTRA_SOURCE_DIR "${CMAKE_C
+# need to set the `LLVM_TOOL_${upper_proj}_BUILD` variables s |	  endif()
+# building all the projects that were previously enabled.     |	endforeach()
+set(LLVM_ENABLE_PROJECTS_USED OFF CACHE BOOL "")	      <
+mark_as_advanced(LLVM_ENABLE_PROJECTS_USED)		      <
+							      <
+if (LLVM_ENABLE_PROJECTS_USED OR NOT LLVM_ENABLE_PROJECTS STR <
+  set(LLVM_ENABLE_PROJECTS_USED ON CACHE BOOL "" FORCE)	      <
+  foreach(proj ${LLVM_ALL_PROJECTS} ${LLVM_EXTERNAL_PROJECTS} <
+    string(TOUPPER "${proj}" upper_proj)		      <
+    string(REGEX REPLACE "-" "_" upper_proj ${upper_proj})    <
+    if ("${proj}" IN_LIST LLVM_ENABLE_PROJECTS)		      <
+      message(STATUS "${proj} project is enabled")	      <
+      set(SHOULD_ENABLE_PROJECT TRUE)			      <
+      set(PROJ_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../${proj}")  <
+      if(NOT EXISTS "${PROJ_DIR}" OR NOT IS_DIRECTORY "${PROJ <
+        message(FATAL_ERROR "LLVM_ENABLE_PROJECTS requests ${ <
+      endif()						      <
+      if( LLVM_EXTERNAL_${upper_proj}_SOURCE_DIR STREQUAL ""  <
+        set(LLVM_EXTERNAL_${upper_proj}_SOURCE_DIR "${CMAKE_C <
+      else()						      <
+        set(LLVM_EXTERNAL_${upper_proj}_SOURCE_DIR "${CMAKE_C <
+      endif()						      <
+    elseif ("${proj}" IN_LIST LLVM_EXTERNAL_PROJECTS)	      <
+      message(STATUS "${proj} project is enabled")	      <
+      set(SHOULD_ENABLE_PROJECT TRUE)			      <
+    else()						      <
+      message(STATUS "${proj} project is disabled")	      <
+      set(SHOULD_ENABLE_PROJECT FALSE)			      <
+    endif()						      <
+    # Force `LLVM_TOOL_${upper_proj}_BUILD` variables to have <
+    # corresponds with `LLVM_ENABLE_PROJECTS`. This prevents  <
+    # `LLVM_TOOL_${upper_proj}_BUILD` variables externally. A <
+    # we should deprecate allowing users to set these variabl <
+    # into normal CMake variables rather than cache variables <
+    set(LLVM_TOOL_${upper_proj}_BUILD			      <
+      ${SHOULD_ENABLE_PROJECT}				      <
+      CACHE						      <
+      BOOL "Whether to build ${upper_proj} as part of LLVM" F <
+    )							      <
+  endforeach()						      <
+endif()							      <
+unset(SHOULD_ENABLE_PROJECT)				      <
+
+# Build llvm with ccache if the package is present		# Build llvm with ccache if the package is present
+set(LLVM_CCACHE_BUILD OFF CACHE BOOL "Set to ON for a ccache 	set(LLVM_CCACHE_BUILD OFF CACHE BOOL "Set to ON for a ccache 
+if(LLVM_CCACHE_BUILD)						if(LLVM_CCACHE_BUILD)
+  find_program(CCACHE_PROGRAM ccache)				  find_program(CCACHE_PROGRAM ccache)
+  if(CCACHE_PROGRAM)						  if(CCACHE_PROGRAM)
+      set(LLVM_CCACHE_MAXSIZE "" CACHE STRING "Size of ccache	      set(LLVM_CCACHE_MAXSIZE "" CACHE STRING "Size of ccache
+      set(LLVM_CCACHE_DIR "" CACHE STRING "Directory to keep 	      set(LLVM_CCACHE_DIR "" CACHE STRING "Directory to keep 
+      set(LLVM_CCACHE_PARAMS "CCACHE_CPP2=yes CCACHE_HASHDIR=	      set(LLVM_CCACHE_PARAMS "CCACHE_CPP2=yes CCACHE_HASHDIR=
+          CACHE STRING "Parameters to pass through to ccache"	          CACHE STRING "Parameters to pass through to ccache"
+
+      set(CCACHE_PROGRAM "${LLVM_CCACHE_PARAMS} ${CCACHE_PROG	      set(CCACHE_PROGRAM "${LLVM_CCACHE_PARAMS} ${CCACHE_PROG
+      if (LLVM_CCACHE_MAXSIZE)					      if (LLVM_CCACHE_MAXSIZE)
+        set(CCACHE_PROGRAM "CCACHE_MAXSIZE=${LLVM_CCACHE_MAXS	        set(CCACHE_PROGRAM "CCACHE_MAXSIZE=${LLVM_CCACHE_MAXS
+      endif()							      endif()
+      if (LLVM_CCACHE_DIR)					      if (LLVM_CCACHE_DIR)
+        set(CCACHE_PROGRAM "CCACHE_DIR=${LLVM_CCACHE_DIR} ${C	        set(CCACHE_PROGRAM "CCACHE_DIR=${LLVM_CCACHE_DIR} ${C
+      endif()							      endif()
+      set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${CCAC	      set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${CCAC
+  else()							  else()
+    message(FATAL_ERROR "Unable to find the program ccache. S	    message(FATAL_ERROR "Unable to find the program ccache. S
+  endif()							  endif()
+endif()								endif()
+
+option(LLVM_DEPENDENCY_DEBUGGING "Dependency debugging mode t	option(LLVM_DEPENDENCY_DEBUGGING "Dependency debugging mode t
+
+# Some features of the LLVM build may be disallowed when depe	# Some features of the LLVM build may be disallowed when depe
+# enabled. In particular you cannot use ccache because we wan	# enabled. In particular you cannot use ccache because we wan
+# operations to always happen.					# operations to always happen.
+if(LLVM_DEPENDENCY_DEBUGGING)					if(LLVM_DEPENDENCY_DEBUGGING)
+  if(NOT CMAKE_HOST_APPLE)					  if(NOT CMAKE_HOST_APPLE)
+    message(FATAL_ERROR "Dependency debugging is only current	    message(FATAL_ERROR "Dependency debugging is only current
+  endif()							  endif()
+  if(LLVM_CCACHE_BUILD)						  if(LLVM_CCACHE_BUILD)
+    message(FATAL_ERROR "Cannot enable dependency debugging w	    message(FATAL_ERROR "Cannot enable dependency debugging w
+  endif()							  endif()
+endif()								endif()
+
+option(LLVM_ENABLE_DAGISEL_COV "Debug: Prints tablegen patter	option(LLVM_ENABLE_DAGISEL_COV "Debug: Prints tablegen patter
+option(LLVM_ENABLE_GISEL_COV "Enable collection of GlobalISel	option(LLVM_ENABLE_GISEL_COV "Enable collection of GlobalISel
+if(LLVM_ENABLE_GISEL_COV)					if(LLVM_ENABLE_GISEL_COV)
+  set(LLVM_GISEL_COV_PREFIX "${CMAKE_BINARY_DIR}/gisel-covera	  set(LLVM_GISEL_COV_PREFIX "${CMAKE_BINARY_DIR}/gisel-covera
+endif()								endif()
+
+# Add path for custom modules					# Add path for custom modules
+set(CMAKE_MODULE_PATH						set(CMAKE_MODULE_PATH
+  ${CMAKE_MODULE_PATH}						  ${CMAKE_MODULE_PATH}
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake"				  "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules"			  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules"
+  )								  )
+
+# Generate a CompilationDatabase (compile_commands.json file)	# Generate a CompilationDatabase (compile_commands.json file)
+# for use by clang_complete, YouCompleteMe, etc.		# for use by clang_complete, YouCompleteMe, etc.
+set(CMAKE_EXPORT_COMPILE_COMMANDS 1)				set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
+
+option(LLVM_INSTALL_BINUTILS_SYMLINKS				option(LLVM_INSTALL_BINUTILS_SYMLINKS
+  "Install symlinks from the binutils tool names to the corre	  "Install symlinks from the binutils tool names to the corre
+
+option(LLVM_INSTALL_CCTOOLS_SYMLINKS			      <
+  "Install symlinks from the cctools tool names to the corres <
+							      <
+option(LLVM_INSTALL_UTILS "Include utility binaries in the 'i	option(LLVM_INSTALL_UTILS "Include utility binaries in the 'i
+
+option(LLVM_INSTALL_TOOLCHAIN_ONLY "Only include toolchain fi	option(LLVM_INSTALL_TOOLCHAIN_ONLY "Only include toolchain fi
+
+# Unfortunatly Clang is too eager to search directories for m <
+# installed version of the maps to be found when building LLV <
+# the installation by default. See llvm.org/PR31905.	      <
+option(LLVM_INSTALL_MODULEMAPS "Install the modulemap files i <
+							      <
+option(LLVM_USE_FOLDERS "Enable solution folders in Visual St	option(LLVM_USE_FOLDERS "Enable solution folders in Visual St
+if ( LLVM_USE_FOLDERS )						if ( LLVM_USE_FOLDERS )
+  set_property(GLOBAL PROPERTY USE_FOLDERS ON)			  set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+endif()								endif()
+
+include(VersionFromVCS)						include(VersionFromVCS)
+
+option(LLVM_APPEND_VC_REV					option(LLVM_APPEND_VC_REV
+  "Embed the version control system revision in LLVM" ON)     |	  "Embed the version control system revision id in LLVM" ON)
+
+set(PACKAGE_NAME LLVM)						set(PACKAGE_NAME LLVM)
+set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")	set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
+set(PACKAGE_BUGREPORT "https://bugs.llvm.org/")			set(PACKAGE_BUGREPORT "https://bugs.llvm.org/")
+
+set(BUG_REPORT_URL "${PACKAGE_BUGREPORT}" CACHE STRING		set(BUG_REPORT_URL "${PACKAGE_BUGREPORT}" CACHE STRING
+  "Default URL where bug reports are to be submitted.")		  "Default URL where bug reports are to be submitted.")
+
+# Configure CPack.						# Configure CPack.
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "LLVM")			set(CPACK_PACKAGE_INSTALL_DIRECTORY "LLVM")
+set(CPACK_PACKAGE_VENDOR "LLVM")				set(CPACK_PACKAGE_VENDOR "LLVM")
+set(CPACK_PACKAGE_VERSION_MAJOR ${LLVM_VERSION_MAJOR})		set(CPACK_PACKAGE_VERSION_MAJOR ${LLVM_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${LLVM_VERSION_MINOR})		set(CPACK_PACKAGE_VERSION_MINOR ${LLVM_VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH ${LLVM_VERSION_PATCH})		set(CPACK_PACKAGE_VERSION_PATCH ${LLVM_VERSION_PATCH})
+set(CPACK_PACKAGE_VERSION ${PACKAGE_VERSION})			set(CPACK_PACKAGE_VERSION ${PACKAGE_VERSION})
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/	set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/
+set(CPACK_NSIS_COMPRESSOR "/SOLID lzma \r\n SetCompressorDict	set(CPACK_NSIS_COMPRESSOR "/SOLID lzma \r\n SetCompressorDict
+if(WIN32 AND NOT UNIX)						if(WIN32 AND NOT UNIX)
+  set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "LLVM")		  set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "LLVM")
+  set(CPACK_PACKAGE_ICON "${CMAKE_CURRENT_SOURCE_DIR}\\\\cmak	  set(CPACK_PACKAGE_ICON "${CMAKE_CURRENT_SOURCE_DIR}\\\\cmak
+  set(CPACK_NSIS_MUI_ICON "${CMAKE_CURRENT_SOURCE_DIR}\\\\cma	  set(CPACK_NSIS_MUI_ICON "${CMAKE_CURRENT_SOURCE_DIR}\\\\cma
+  set(CPACK_NSIS_MUI_UNIICON "${CMAKE_CURRENT_SOURCE_DIR}\\\\	  set(CPACK_NSIS_MUI_UNIICON "${CMAKE_CURRENT_SOURCE_DIR}\\\\
+  set(CPACK_NSIS_MODIFY_PATH "ON")				  set(CPACK_NSIS_MODIFY_PATH "ON")
+  set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL "ON")		  set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL "ON")
+  if( CMAKE_CL_64 )						  if( CMAKE_CL_64 )
+    set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")		    set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
+  endif()							  endif()
+endif()								endif()
+include(CPack)							include(CPack)
+
+# Sanity check our source directory to make sure that we are 	# Sanity check our source directory to make sure that we are 
+# generate an in-source build (unless on MSVC_IDE, where it i	# generate an in-source build (unless on MSVC_IDE, where it i
+# sure that we don't have any stray generated files lying aro	# sure that we don't have any stray generated files lying aro
+# (which would end up getting picked up by header search, ins	# (which would end up getting picked up by header search, ins
+# versions).							# versions).
+if( CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_CURRENT_BINARY_DI	if( CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_CURRENT_BINARY_DI
+  message(FATAL_ERROR "In-source builds are not allowed.	  message(FATAL_ERROR "In-source builds are not allowed.
+Please create a directory and run cmake from there, passing t	Please create a directory and run cmake from there, passing t
+to this source directory as the last argument.			to this source directory as the last argument.
+This process created the file `CMakeCache.txt' and the direct	This process created the file `CMakeCache.txt' and the direct
+Please delete them.")						Please delete them.")
+endif()								endif()
+
+string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TY	string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TY
+
+if (CMAKE_BUILD_TYPE AND					if (CMAKE_BUILD_TYPE AND
+    NOT uppercase_CMAKE_BUILD_TYPE MATCHES "^(DEBUG|RELEASE|R	    NOT uppercase_CMAKE_BUILD_TYPE MATCHES "^(DEBUG|RELEASE|R
+  message(FATAL_ERROR "Invalid value for CMAKE_BUILD_TYPE: ${	  message(FATAL_ERROR "Invalid value for CMAKE_BUILD_TYPE: ${
+endif()								endif()
+
+set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of libr	set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of libr
+
+set(LLVM_TOOLS_INSTALL_DIR "bin" CACHE STRING "Path for binar	set(LLVM_TOOLS_INSTALL_DIR "bin" CACHE STRING "Path for binar
+mark_as_advanced(LLVM_TOOLS_INSTALL_DIR)			mark_as_advanced(LLVM_TOOLS_INSTALL_DIR)
+
+set(LLVM_UTILS_INSTALL_DIR "${LLVM_TOOLS_INSTALL_DIR}" CACHE 	set(LLVM_UTILS_INSTALL_DIR "${LLVM_TOOLS_INSTALL_DIR}" CACHE 
+    "Path to install LLVM utilities (enabled by LLVM_INSTALL_	    "Path to install LLVM utilities (enabled by LLVM_INSTALL_
+mark_as_advanced(LLVM_UTILS_INSTALL_DIR)			mark_as_advanced(LLVM_UTILS_INSTALL_DIR)
+
+# They are used as destination of target generators.		# They are used as destination of target generators.
+set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_CURRENT_BINARY_DIR}/${	set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_CURRENT_BINARY_DIR}/${
+set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_CURRENT_BINARY_DIR}/${	set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_CURRENT_BINARY_DIR}/${
+if(WIN32 OR CYGWIN)						if(WIN32 OR CYGWIN)
+  # DLL platform -- put DLLs into bin.				  # DLL platform -- put DLLs into bin.
+  set(LLVM_SHLIB_OUTPUT_INTDIR ${LLVM_RUNTIME_OUTPUT_INTDIR})	  set(LLVM_SHLIB_OUTPUT_INTDIR ${LLVM_RUNTIME_OUTPUT_INTDIR})
+else()								else()
+  set(LLVM_SHLIB_OUTPUT_INTDIR ${LLVM_LIBRARY_OUTPUT_INTDIR})	  set(LLVM_SHLIB_OUTPUT_INTDIR ${LLVM_LIBRARY_OUTPUT_INTDIR})
+endif()								endif()
+
+# Each of them corresponds to llvm-config's.			# Each of them corresponds to llvm-config's.
+set(LLVM_TOOLS_BINARY_DIR ${LLVM_RUNTIME_OUTPUT_INTDIR}) # --	set(LLVM_TOOLS_BINARY_DIR ${LLVM_RUNTIME_OUTPUT_INTDIR}) # --
+set(LLVM_LIBRARY_DIR      ${LLVM_LIBRARY_OUTPUT_INTDIR}) # --	set(LLVM_LIBRARY_DIR      ${LLVM_LIBRARY_OUTPUT_INTDIR}) # --
+set(LLVM_MAIN_SRC_DIR     ${CMAKE_CURRENT_SOURCE_DIR}  ) # --	set(LLVM_MAIN_SRC_DIR     ${CMAKE_CURRENT_SOURCE_DIR}  ) # --
+set(LLVM_MAIN_INCLUDE_DIR ${LLVM_MAIN_SRC_DIR}/include ) # --	set(LLVM_MAIN_INCLUDE_DIR ${LLVM_MAIN_SRC_DIR}/include ) # --
+set(LLVM_BINARY_DIR       ${CMAKE_CURRENT_BINARY_DIR}  ) # --	set(LLVM_BINARY_DIR       ${CMAKE_CURRENT_BINARY_DIR}  ) # --
+
+# Note: LLVM_CMAKE_PATH does not include generated files	# Note: LLVM_CMAKE_PATH does not include generated files
+set(LLVM_CMAKE_PATH ${LLVM_MAIN_SRC_DIR}/cmake/modules)		set(LLVM_CMAKE_PATH ${LLVM_MAIN_SRC_DIR}/cmake/modules)
+set(LLVM_EXAMPLES_BINARY_DIR ${LLVM_BINARY_DIR}/examples)	set(LLVM_EXAMPLES_BINARY_DIR ${LLVM_BINARY_DIR}/examples)
+set(LLVM_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/include)	set(LLVM_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/include)
+
+# List of all targets to be built by default:			# List of all targets to be built by default:
+set(LLVM_ALL_TARGETS						set(LLVM_ALL_TARGETS
+  AArch64							  AArch64
+  AMDGPU							  AMDGPU
+  ARM								  ARM
+  BPF								  BPF
+  Hexagon							  Hexagon
+  Lanai								  Lanai
+  Mips								  Mips
+  MSP430							  MSP430
+  NVPTX								  NVPTX
+  PowerPC							  PowerPC
+  RISCV							      <
+  Sparc								  Sparc
+  SystemZ							  SystemZ
+  WebAssembly							  WebAssembly
+  X86								  X86
+  XCore								  XCore
+  )								  )
+
+# List of targets with JIT support:				# List of targets with JIT support:
+set(LLVM_TARGETS_WITH_JIT X86 PowerPC AArch64 ARM Mips System	set(LLVM_TARGETS_WITH_JIT X86 PowerPC AArch64 ARM Mips System
+
+set(LLVM_TARGETS_TO_BUILD "all"					set(LLVM_TARGETS_TO_BUILD "all"
+    CACHE STRING "Semicolon-separated list of targets to buil	    CACHE STRING "Semicolon-separated list of targets to buil
+
+set(LLVM_EXPERIMENTAL_TARGETS_TO_BUILD ""			set(LLVM_EXPERIMENTAL_TARGETS_TO_BUILD ""
+  CACHE STRING "Semicolon-separated list of experimental targ	  CACHE STRING "Semicolon-separated list of experimental targ
+
+option(BUILD_SHARED_LIBS					option(BUILD_SHARED_LIBS
+  "Build all libraries as shared libraries instead of static"	  "Build all libraries as shared libraries instead of static"
+
+option(LLVM_ENABLE_BACKTRACES "Enable embedding backtraces on	option(LLVM_ENABLE_BACKTRACES "Enable embedding backtraces on
+if(LLVM_ENABLE_BACKTRACES)					if(LLVM_ENABLE_BACKTRACES)
+  set(ENABLE_BACKTRACES 1)					  set(ENABLE_BACKTRACES 1)
+endif()								endif()
+
+option(LLVM_ENABLE_UNWIND_TABLES "Emit unwind tables for the  <
+							      <
+option(LLVM_ENABLE_CRASH_OVERRIDES "Enable crash overrides." 	option(LLVM_ENABLE_CRASH_OVERRIDES "Enable crash overrides." 
+if(LLVM_ENABLE_CRASH_OVERRIDES)					if(LLVM_ENABLE_CRASH_OVERRIDES)
+  set(ENABLE_CRASH_OVERRIDES 1)					  set(ENABLE_CRASH_OVERRIDES 1)
+endif()								endif()
+
+option(LLVM_ENABLE_CRASH_DUMPS "Turn on memory dumps on crash	option(LLVM_ENABLE_CRASH_DUMPS "Turn on memory dumps on crash
+
+option(LLVM_ENABLE_FFI "Use libffi to call external functions	option(LLVM_ENABLE_FFI "Use libffi to call external functions
+set(FFI_LIBRARY_DIR "" CACHE PATH "Additional directory, wher	set(FFI_LIBRARY_DIR "" CACHE PATH "Additional directory, wher
+set(FFI_INCLUDE_DIR "" CACHE PATH "Additional directory, wher	set(FFI_INCLUDE_DIR "" CACHE PATH "Additional directory, wher
+
+set(LLVM_TARGET_ARCH "host"					set(LLVM_TARGET_ARCH "host"
+  CACHE STRING "Set target to use for LLVM JIT or use \"host\	  CACHE STRING "Set target to use for LLVM JIT or use \"host\
+
+option(LLVM_ENABLE_TERMINFO "Use terminfo database if availab	option(LLVM_ENABLE_TERMINFO "Use terminfo database if availab
+
+set(LLVM_ENABLE_LIBXML2 "ON" CACHE STRING "Use libxml2 if ava	set(LLVM_ENABLE_LIBXML2 "ON" CACHE STRING "Use libxml2 if ava
+
+option(LLVM_ENABLE_LIBEDIT "Use libedit if available." ON)	option(LLVM_ENABLE_LIBEDIT "Use libedit if available." ON)
+
+option(LLVM_ENABLE_LIBPFM "Use libpfm for performance counter	option(LLVM_ENABLE_LIBPFM "Use libpfm for performance counter
+
+option(LLVM_ENABLE_THREADS "Use threads if available." ON)	option(LLVM_ENABLE_THREADS "Use threads if available." ON)
+
+option(LLVM_ENABLE_ZLIB "Use zlib for compression/decompressi	option(LLVM_ENABLE_ZLIB "Use zlib for compression/decompressi
+
+set(LLVM_Z3_INSTALL_DIR "" CACHE STRING "Install directory of <
+							      <
+find_package(Z3 4.7.1)					      <
+							      <
+if (LLVM_Z3_INSTALL_DIR)				      <
+  if (NOT Z3_FOUND)					      <
+    message(FATAL_ERROR "Z3 >= 4.7.1 has not been found in LL <
+  endif()						      <
+endif()							      <
+							      <
+set(LLVM_ENABLE_Z3_SOLVER_DEFAULT "${Z3_FOUND}")	      <
+							      <
+option(LLVM_ENABLE_Z3_SOLVER				      <
+  "Enable Support for the Z3 constraint solver in LLVM."      <
+  ${LLVM_ENABLE_Z3_SOLVER_DEFAULT}			      <
+)							      <
+							      <
+if (LLVM_ENABLE_Z3_SOLVER)				      <
+  if (NOT Z3_FOUND)					      <
+    message(FATAL_ERROR "LLVM_ENABLE_Z3_SOLVER cannot be enab <
+  endif()						      <
+							      <
+  set(LLVM_WITH_Z3 1)					      <
+endif()							      <
+							      <
+if( LLVM_TARGETS_TO_BUILD STREQUAL "all" )			if( LLVM_TARGETS_TO_BUILD STREQUAL "all" )
+  set( LLVM_TARGETS_TO_BUILD ${LLVM_ALL_TARGETS} )		  set( LLVM_TARGETS_TO_BUILD ${LLVM_ALL_TARGETS} )
+endif()								endif()
+
+set(LLVM_TARGETS_TO_BUILD					set(LLVM_TARGETS_TO_BUILD
+   ${LLVM_TARGETS_TO_BUILD}					   ${LLVM_TARGETS_TO_BUILD}
+   ${LLVM_EXPERIMENTAL_TARGETS_TO_BUILD})			   ${LLVM_EXPERIMENTAL_TARGETS_TO_BUILD})
+list(REMOVE_DUPLICATES LLVM_TARGETS_TO_BUILD)			list(REMOVE_DUPLICATES LLVM_TARGETS_TO_BUILD)
+
+option(LLVM_ENABLE_PIC "Build Position-Independent Code" ON)	option(LLVM_ENABLE_PIC "Build Position-Independent Code" ON)
+option(LLVM_ENABLE_WARNINGS "Enable compiler warnings." ON)	option(LLVM_ENABLE_WARNINGS "Enable compiler warnings." ON)
+option(LLVM_ENABLE_MODULES "Compile with C++ modules enabled.	option(LLVM_ENABLE_MODULES "Compile with C++ modules enabled.
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")			if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  option(LLVM_ENABLE_MODULE_DEBUGGING "Compile with -gmodules	  option(LLVM_ENABLE_MODULE_DEBUGGING "Compile with -gmodules
+  option(LLVM_ENABLE_LOCAL_SUBMODULE_VISIBILITY "Compile with	  option(LLVM_ENABLE_LOCAL_SUBMODULE_VISIBILITY "Compile with
+else()								else()
+  option(LLVM_ENABLE_MODULE_DEBUGGING "Compile with -gmodules	  option(LLVM_ENABLE_MODULE_DEBUGGING "Compile with -gmodules
+  option(LLVM_ENABLE_LOCAL_SUBMODULE_VISIBILITY "Compile with	  option(LLVM_ENABLE_LOCAL_SUBMODULE_VISIBILITY "Compile with
+endif()								endif()
+							      >	option(LLVM_ENABLE_CXX1Y "Compile with C++1y enabled." OFF)
+							      >	option(LLVM_ENABLE_CXX1Z "Compile with C++1z enabled." OFF)
+option(LLVM_ENABLE_LIBCXX "Use libc++ if available." OFF)	option(LLVM_ENABLE_LIBCXX "Use libc++ if available." OFF)
+option(LLVM_STATIC_LINK_CXX_STDLIB "Statically link the stand <
+option(LLVM_ENABLE_LLD "Use lld as C and C++ linker." OFF)	option(LLVM_ENABLE_LLD "Use lld as C and C++ linker." OFF)
+option(LLVM_ENABLE_PEDANTIC "Compile with pedantic enabled." 	option(LLVM_ENABLE_PEDANTIC "Compile with pedantic enabled." 
+option(LLVM_ENABLE_WERROR "Fail and stop if a warning is trig	option(LLVM_ENABLE_WERROR "Fail and stop if a warning is trig
+
+option(LLVM_ENABLE_DUMP "Enable dump functions even when asse	option(LLVM_ENABLE_DUMP "Enable dump functions even when asse
+
+if( NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG" )		if( NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG" )
+  option(LLVM_ENABLE_ASSERTIONS "Enable assertions" OFF)	  option(LLVM_ENABLE_ASSERTIONS "Enable assertions" OFF)
+else()								else()
+  option(LLVM_ENABLE_ASSERTIONS "Enable assertions" ON)		  option(LLVM_ENABLE_ASSERTIONS "Enable assertions" ON)
+endif()								endif()
+
+option(LLVM_ENABLE_EXPENSIVE_CHECKS "Enable expensive checks"	option(LLVM_ENABLE_EXPENSIVE_CHECKS "Enable expensive checks"
+
+set(LLVM_ABI_BREAKING_CHECKS "WITH_ASSERTS" CACHE STRING	set(LLVM_ABI_BREAKING_CHECKS "WITH_ASSERTS" CACHE STRING
+  "Enable abi-breaking checks.  Can be WITH_ASSERTS, FORCE_ON	  "Enable abi-breaking checks.  Can be WITH_ASSERTS, FORCE_ON
+
+option(LLVM_FORCE_USE_OLD_TOOLCHAIN			      |	option(LLVM_FORCE_USE_OLD_HOST_TOOLCHAIN
+       "Set to ON to force using an old, unsupported host too	       "Set to ON to force using an old, unsupported host too
+
+option(LLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN		      <
+       "Set to ON to only warn when using a toolchain which i <
+							      <
+option(LLVM_USE_INTEL_JITEVENTS					option(LLVM_USE_INTEL_JITEVENTS
+  "Use Intel JIT API to inform Intel(R) VTune(TM) Amplifier X	  "Use Intel JIT API to inform Intel(R) VTune(TM) Amplifier X
+  OFF)								  OFF)
+
+if( LLVM_USE_INTEL_JITEVENTS )					if( LLVM_USE_INTEL_JITEVENTS )
+  # Verify we are on a supported platform			  # Verify we are on a supported platform
+  if( NOT CMAKE_SYSTEM_NAME MATCHES "Windows" AND NOT CMAKE_S	  if( NOT CMAKE_SYSTEM_NAME MATCHES "Windows" AND NOT CMAKE_S
+    message(FATAL_ERROR						    message(FATAL_ERROR
+      "Intel JIT API support is available on Linux and Window	      "Intel JIT API support is available on Linux and Window
+  endif()							  endif()
+endif( LLVM_USE_INTEL_JITEVENTS )				endif( LLVM_USE_INTEL_JITEVENTS )
+
+option(LLVM_USE_OPROFILE					option(LLVM_USE_OPROFILE
+  "Use opagent JIT interface to inform OProfile about JIT cod	  "Use opagent JIT interface to inform OProfile about JIT cod
+
+option(LLVM_EXTERNALIZE_DEBUGINFO				option(LLVM_EXTERNALIZE_DEBUGINFO
+  "Generate dSYM files and strip executables and libraries (D	  "Generate dSYM files and strip executables and libraries (D
+
+set(LLVM_CODESIGNING_IDENTITY "" CACHE STRING		      |	option(LLVM_CODESIGNING_IDENTITY
+  "Sign executables and dylibs with the given identity or ski |	  "Sign executables and dylibs with the given identity (Darwi
+
+# If enabled, verify we are on a platform that supports oprof	# If enabled, verify we are on a platform that supports oprof
+if( LLVM_USE_OPROFILE )						if( LLVM_USE_OPROFILE )
+  if( NOT CMAKE_SYSTEM_NAME MATCHES "Linux" )			  if( NOT CMAKE_SYSTEM_NAME MATCHES "Linux" )
+    message(FATAL_ERROR "OProfile support is available on Lin	    message(FATAL_ERROR "OProfile support is available on Lin
+  endif( NOT CMAKE_SYSTEM_NAME MATCHES "Linux" )		  endif( NOT CMAKE_SYSTEM_NAME MATCHES "Linux" )
+endif( LLVM_USE_OPROFILE )					endif( LLVM_USE_OPROFILE )
+
+option(LLVM_USE_PERF						option(LLVM_USE_PERF
+  "Use perf JIT interface to inform perf about JIT code" OFF)	  "Use perf JIT interface to inform perf about JIT code" OFF)
+
+# If enabled, verify we are on a platform that supports perf.	# If enabled, verify we are on a platform that supports perf.
+if( LLVM_USE_PERF )						if( LLVM_USE_PERF )
+  if( NOT CMAKE_SYSTEM_NAME MATCHES "Linux" )			  if( NOT CMAKE_SYSTEM_NAME MATCHES "Linux" )
+    message(FATAL_ERROR "perf support is available on Linux o	    message(FATAL_ERROR "perf support is available on Linux o
+  endif( NOT CMAKE_SYSTEM_NAME MATCHES "Linux" )		  endif( NOT CMAKE_SYSTEM_NAME MATCHES "Linux" )
+endif( LLVM_USE_PERF )						endif( LLVM_USE_PERF )
+
+set(LLVM_USE_SANITIZER "" CACHE STRING				set(LLVM_USE_SANITIZER "" CACHE STRING
+  "Define the sanitizer used to build binaries and tests.")	  "Define the sanitizer used to build binaries and tests.")
+option(LLVM_OPTIMIZE_SANITIZED_BUILDS "Pass -O1 on debug sani	option(LLVM_OPTIMIZE_SANITIZED_BUILDS "Pass -O1 on debug sani
+set(LLVM_LIB_FUZZING_ENGINE "" CACHE PATH			set(LLVM_LIB_FUZZING_ENGINE "" CACHE PATH
+  "Path to fuzzing library for linking with fuzz targets")	  "Path to fuzzing library for linking with fuzz targets")
+
+option(LLVM_USE_SPLIT_DWARF					option(LLVM_USE_SPLIT_DWARF
+  "Use -gsplit-dwarf when compiling llvm." OFF)			  "Use -gsplit-dwarf when compiling llvm." OFF)
+
+option(LLVM_POLLY_LINK_INTO_TOOLS "Statically link Polly into	option(LLVM_POLLY_LINK_INTO_TOOLS "Statically link Polly into
+option(LLVM_POLLY_BUILD "Build LLVM with Polly" ON)		option(LLVM_POLLY_BUILD "Build LLVM with Polly" ON)
+
+if (EXISTS ${LLVM_MAIN_SRC_DIR}/tools/polly/CMakeLists.txt)	if (EXISTS ${LLVM_MAIN_SRC_DIR}/tools/polly/CMakeLists.txt)
+  set(POLLY_IN_TREE TRUE)					  set(POLLY_IN_TREE TRUE)
+elseif(LLVM_EXTERNAL_POLLY_SOURCE_DIR)				elseif(LLVM_EXTERNAL_POLLY_SOURCE_DIR)
+  set(POLLY_IN_TREE TRUE)					  set(POLLY_IN_TREE TRUE)
+else()								else()
+  set(POLLY_IN_TREE FALSE)					  set(POLLY_IN_TREE FALSE)
+endif()								endif()
+
+if (LLVM_POLLY_BUILD AND POLLY_IN_TREE)				if (LLVM_POLLY_BUILD AND POLLY_IN_TREE)
+  set(WITH_POLLY ON)						  set(WITH_POLLY ON)
+else()								else()
+  set(WITH_POLLY OFF)						  set(WITH_POLLY OFF)
+endif()								endif()
+
+if (LLVM_POLLY_LINK_INTO_TOOLS AND WITH_POLLY)			if (LLVM_POLLY_LINK_INTO_TOOLS AND WITH_POLLY)
+  set(LINK_POLLY_INTO_TOOLS ON)					  set(LINK_POLLY_INTO_TOOLS ON)
+else()								else()
+  set(LINK_POLLY_INTO_TOOLS OFF)				  set(LINK_POLLY_INTO_TOOLS OFF)
+endif()								endif()
+
+# Define an option controlling whether we should build for 32	# Define an option controlling whether we should build for 32
+# platforms, where supported.					# platforms, where supported.
+if( CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32 )			if( CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32 )
+  # TODO: support other platforms and toolchains.		  # TODO: support other platforms and toolchains.
+  option(LLVM_BUILD_32_BITS "Build 32 bits executables and li	  option(LLVM_BUILD_32_BITS "Build 32 bits executables and li
+endif()								endif()
+
+# Define the default arguments to use with 'lit', and an opti	# Define the default arguments to use with 'lit', and an opti
+# override.							# override.
+set(LIT_ARGS_DEFAULT "-sv")					set(LIT_ARGS_DEFAULT "-sv")
+if (MSVC_IDE OR XCODE)						if (MSVC_IDE OR XCODE)
+  set(LIT_ARGS_DEFAULT "${LIT_ARGS_DEFAULT} --no-progress-bar	  set(LIT_ARGS_DEFAULT "${LIT_ARGS_DEFAULT} --no-progress-bar
+endif()								endif()
+set(LLVM_LIT_ARGS "${LIT_ARGS_DEFAULT}" CACHE STRING "Default	set(LLVM_LIT_ARGS "${LIT_ARGS_DEFAULT}" CACHE STRING "Default
+
+# On Win32 hosts, provide an option to specify the path to th	# On Win32 hosts, provide an option to specify the path to th
+if( WIN32 AND NOT CYGWIN )					if( WIN32 AND NOT CYGWIN )
+  set(LLVM_LIT_TOOLS_DIR "" CACHE PATH "Path to GnuWin32 tool	  set(LLVM_LIT_TOOLS_DIR "" CACHE PATH "Path to GnuWin32 tool
+endif()								endif()
+
+# Define options to control the inclusion and default build b	# Define options to control the inclusion and default build b
+# components which may not strictly be necessary (tools, exam	# components which may not strictly be necessary (tools, exam
+#								#
+# This is primarily to support building smaller or faster pro	# This is primarily to support building smaller or faster pro
+option(LLVM_INCLUDE_TOOLS "Generate build targets for the LLV	option(LLVM_INCLUDE_TOOLS "Generate build targets for the LLV
+option(LLVM_BUILD_TOOLS						option(LLVM_BUILD_TOOLS
+  "Build the LLVM tools. If OFF, just generate build targets.	  "Build the LLVM tools. If OFF, just generate build targets.
+
+option(LLVM_INCLUDE_UTILS "Generate build targets for the LLV	option(LLVM_INCLUDE_UTILS "Generate build targets for the LLV
+option(LLVM_BUILD_UTILS						option(LLVM_BUILD_UTILS
+  "Build LLVM utility binaries. If OFF, just generate build t	  "Build LLVM utility binaries. If OFF, just generate build t
+
+option(LLVM_INCLUDE_RUNTIMES "Generate build targets for the 	option(LLVM_INCLUDE_RUNTIMES "Generate build targets for the 
+option(LLVM_BUILD_RUNTIMES					option(LLVM_BUILD_RUNTIMES
+  "Build the LLVM runtimes. If OFF, just generate build targe	  "Build the LLVM runtimes. If OFF, just generate build targe
+
+option(LLVM_BUILD_RUNTIME					option(LLVM_BUILD_RUNTIME
+  "Build the LLVM runtime libraries." ON)			  "Build the LLVM runtime libraries." ON)
+option(LLVM_BUILD_EXAMPLES					option(LLVM_BUILD_EXAMPLES
+  "Build the LLVM example programs. If OFF, just generate bui	  "Build the LLVM example programs. If OFF, just generate bui
+option(LLVM_INCLUDE_EXAMPLES "Generate build targets for the 	option(LLVM_INCLUDE_EXAMPLES "Generate build targets for the 
+
+option(LLVM_BUILD_TESTS						option(LLVM_BUILD_TESTS
+  "Build LLVM unit tests. If OFF, just generate build targets	  "Build LLVM unit tests. If OFF, just generate build targets
+option(LLVM_INCLUDE_TESTS "Generate build targets for the LLV	option(LLVM_INCLUDE_TESTS "Generate build targets for the LLV
+option(LLVM_INCLUDE_GO_TESTS "Include the Go bindings tests i	option(LLVM_INCLUDE_GO_TESTS "Include the Go bindings tests i
+
+option(LLVM_BUILD_BENCHMARKS "Add LLVM benchmark targets to t	option(LLVM_BUILD_BENCHMARKS "Add LLVM benchmark targets to t
+targets. If OFF, benchmarks still could be built using Benchm	targets. If OFF, benchmarks still could be built using Benchm
+option(LLVM_INCLUDE_BENCHMARKS "Generate benchmark targets. I	option(LLVM_INCLUDE_BENCHMARKS "Generate benchmark targets. I
+
+option (LLVM_BUILD_DOCS "Build the llvm documentation." OFF)	option (LLVM_BUILD_DOCS "Build the llvm documentation." OFF)
+option (LLVM_INCLUDE_DOCS "Generate build targets for llvm do	option (LLVM_INCLUDE_DOCS "Generate build targets for llvm do
+option (LLVM_ENABLE_DOXYGEN "Use doxygen to generate llvm API	option (LLVM_ENABLE_DOXYGEN "Use doxygen to generate llvm API
+option (LLVM_ENABLE_SPHINX "Use Sphinx to generate llvm docum	option (LLVM_ENABLE_SPHINX "Use Sphinx to generate llvm docum
+option (LLVM_ENABLE_OCAMLDOC "Build OCaml bindings documentat	option (LLVM_ENABLE_OCAMLDOC "Build OCaml bindings documentat
+option (LLVM_ENABLE_BINDINGS "Build bindings." ON)		option (LLVM_ENABLE_BINDINGS "Build bindings." ON)
+
+set(LLVM_INSTALL_DOXYGEN_HTML_DIR "share/doc/llvm/doxygen-htm	set(LLVM_INSTALL_DOXYGEN_HTML_DIR "share/doc/llvm/doxygen-htm
+    CACHE STRING "Doxygen-generated HTML documentation instal	    CACHE STRING "Doxygen-generated HTML documentation instal
+set(LLVM_INSTALL_OCAMLDOC_HTML_DIR "share/doc/llvm/ocaml-html	set(LLVM_INSTALL_OCAMLDOC_HTML_DIR "share/doc/llvm/ocaml-html
+    CACHE STRING "OCamldoc-generated HTML documentation insta	    CACHE STRING "OCamldoc-generated HTML documentation insta
+
+option (LLVM_BUILD_EXTERNAL_COMPILER_RT				option (LLVM_BUILD_EXTERNAL_COMPILER_RT
+  "Build compiler-rt as an external project." OFF)		  "Build compiler-rt as an external project." OFF)
+
+option (LLVM_VERSION_PRINTER_SHOW_HOST_TARGET_INFO		option (LLVM_VERSION_PRINTER_SHOW_HOST_TARGET_INFO
+  "Show target and host info when tools are invoked with --ve	  "Show target and host info when tools are invoked with --ve
+
+# You can configure which libraries from LLVM you want to inc	# You can configure which libraries from LLVM you want to inc
+# shared library by setting LLVM_DYLIB_COMPONENTS to a semi-c	# shared library by setting LLVM_DYLIB_COMPONENTS to a semi-c
+# list of LLVM components. All component names handled by llv	# list of LLVM components. All component names handled by llv
+if(NOT DEFINED LLVM_DYLIB_COMPONENTS)				if(NOT DEFINED LLVM_DYLIB_COMPONENTS)
+  set(LLVM_DYLIB_COMPONENTS "all" CACHE STRING			  set(LLVM_DYLIB_COMPONENTS "all" CACHE STRING
+    "Semicolon-separated list of components to include in lib	    "Semicolon-separated list of components to include in lib
+endif()								endif()
+option(LLVM_LINK_LLVM_DYLIB "Link tools against the libllvm d	option(LLVM_LINK_LLVM_DYLIB "Link tools against the libllvm d
+if(MSVC)							if(MSVC)
+  option(LLVM_BUILD_LLVM_C_DYLIB "Build LLVM-C.dll (Windows o |	  option(LLVM_BUILD_LLVM_C_DYLIB "Build LLVM-C.dll (Windows o
+else()								else()
+  option(LLVM_BUILD_LLVM_C_DYLIB "Build libllvm-c re-export l	  option(LLVM_BUILD_LLVM_C_DYLIB "Build libllvm-c re-export l
+endif()								endif()
+set(LLVM_BUILD_LLVM_DYLIB_default OFF)				set(LLVM_BUILD_LLVM_DYLIB_default OFF)
+if(LLVM_LINK_LLVM_DYLIB OR (LLVM_BUILD_LLVM_C_DYLIB AND NOT M	if(LLVM_LINK_LLVM_DYLIB OR (LLVM_BUILD_LLVM_C_DYLIB AND NOT M
+  set(LLVM_BUILD_LLVM_DYLIB_default ON)				  set(LLVM_BUILD_LLVM_DYLIB_default ON)
+endif()								endif()
+option(LLVM_BUILD_LLVM_DYLIB "Build libllvm dynamic library" 	option(LLVM_BUILD_LLVM_DYLIB "Build libllvm dynamic library" 
+
+option(LLVM_OPTIMIZED_TABLEGEN "Force TableGen to be built wi	option(LLVM_OPTIMIZED_TABLEGEN "Force TableGen to be built wi
+if(CMAKE_CROSSCOMPILING OR (LLVM_OPTIMIZED_TABLEGEN AND (LLVM	if(CMAKE_CROSSCOMPILING OR (LLVM_OPTIMIZED_TABLEGEN AND (LLVM
+  set(LLVM_USE_HOST_TOOLS ON)					  set(LLVM_USE_HOST_TOOLS ON)
+endif()								endif()
+
+if (MSVC_IDE)						      |	if (MSVC_IDE AND NOT (MSVC_VERSION LESS 1900))
+  option(LLVM_ADD_NATIVE_VISUALIZERS_TO_SOLUTION "Configure p	  option(LLVM_ADD_NATIVE_VISUALIZERS_TO_SOLUTION "Configure p
+							      >	else()
+							      >	  set(LLVM_ADD_NATIVE_VISUALIZERS_TO_SOLUTION FALSE CACHE INT
+endif()								endif()
+
+if (LLVM_BUILD_INSTRUMENTED OR LLVM_BUILD_INSTRUMENTED_COVERA	if (LLVM_BUILD_INSTRUMENTED OR LLVM_BUILD_INSTRUMENTED_COVERA
+    LLVM_ENABLE_IR_PGO)						    LLVM_ENABLE_IR_PGO)
+  if(NOT LLVM_PROFILE_MERGE_POOL_SIZE)				  if(NOT LLVM_PROFILE_MERGE_POOL_SIZE)
+    # A pool size of 1-2 is probably sufficient on a SSD. 3-4	    # A pool size of 1-2 is probably sufficient on a SSD. 3-4
+    # for spining disks. Anything higher may only help on slo	    # for spining disks. Anything higher may only help on slo
+    set(LLVM_PROFILE_MERGE_POOL_SIZE "4")			    set(LLVM_PROFILE_MERGE_POOL_SIZE "4")
+  endif()							  endif()
+  if(NOT LLVM_PROFILE_FILE_PATTERN)				  if(NOT LLVM_PROFILE_FILE_PATTERN)
+    if(NOT LLVM_PROFILE_DATA_DIR)				    if(NOT LLVM_PROFILE_DATA_DIR)
+      file(TO_NATIVE_PATH "${LLVM_BINARY_DIR}/profiles" LLVM_	      file(TO_NATIVE_PATH "${LLVM_BINARY_DIR}/profiles" LLVM_
+    endif()							    endif()
+		file(TO_NATIVE_PATH "${LLVM_PROFILE_DATA_DIR}			file(TO_NATIVE_PATH "${LLVM_PROFILE_DATA_DIR}
+  endif()							  endif()
+  if(NOT LLVM_CSPROFILE_FILE_PATTERN)			      <
+    if(NOT LLVM_CSPROFILE_DATA_DIR)			      <
+      file(TO_NATIVE_PATH "${LLVM_BINARY_DIR}/csprofiles" LLV <
+    endif()						      <
+    file(TO_NATIVE_PATH "${LLVM_CSPROFILE_DATA_DIR}/%${LLVM_P <
+  endif()						      <
+endif()								endif()
+
+if (LLVM_BUILD_STATIC)						if (LLVM_BUILD_STATIC)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stat	  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stat
+endif()								endif()
+
+# Use libtool instead of ar if you are both on an Apple host, <
+if(CMAKE_HOST_APPLE AND APPLE)				      <
+  include(UseLibtool)					      <
+endif()							      <
+							      <
+# Override the default target with an environment variable na	# Override the default target with an environment variable na
+set(LLVM_TARGET_TRIPLE_ENV CACHE STRING "The name of environm	set(LLVM_TARGET_TRIPLE_ENV CACHE STRING "The name of environm
+mark_as_advanced(LLVM_TARGET_TRIPLE_ENV)			mark_as_advanced(LLVM_TARGET_TRIPLE_ENV)
+
+set(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR OFF CACHE BOOL		set(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR OFF CACHE BOOL
+  "Enable per-target runtimes directory")			  "Enable per-target runtimes directory")
+
+set(LLVM_PROFDATA_FILE "" CACHE FILEPATH		      <
+  "Profiling data file to use when compiling in order to impr <
+							      <
+# All options referred to from HandleLLVMOptions have to be s	# All options referred to from HandleLLVMOptions have to be s
+# BEFORE this include, otherwise options will not be correctl	# BEFORE this include, otherwise options will not be correctl
+# first cmake run						# first cmake run
+include(config-ix)						include(config-ix)
+
+string(REPLACE "Native" ${LLVM_NATIVE_ARCH}			string(REPLACE "Native" ${LLVM_NATIVE_ARCH}
+  LLVM_TARGETS_TO_BUILD "${LLVM_TARGETS_TO_BUILD}")		  LLVM_TARGETS_TO_BUILD "${LLVM_TARGETS_TO_BUILD}")
+list(REMOVE_DUPLICATES LLVM_TARGETS_TO_BUILD)			list(REMOVE_DUPLICATES LLVM_TARGETS_TO_BUILD)
+
+# By default, we target the host, but this can be overridden 	# By default, we target the host, but this can be overridden 
+# invocation time.						# invocation time.
+set(LLVM_DEFAULT_TARGET_TRIPLE "${LLVM_HOST_TRIPLE}" CACHE ST	set(LLVM_DEFAULT_TARGET_TRIPLE "${LLVM_HOST_TRIPLE}" CACHE ST
+  "Default target for which LLVM will generate code." )		  "Default target for which LLVM will generate code." )
+set(TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE}")		set(TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE}")
+message(STATUS "LLVM host triple: ${LLVM_HOST_TRIPLE}")		message(STATUS "LLVM host triple: ${LLVM_HOST_TRIPLE}")
+message(STATUS "LLVM default target triple: ${LLVM_DEFAULT_TA	message(STATUS "LLVM default target triple: ${LLVM_DEFAULT_TA
+
+if(WIN32 OR CYGWIN)					      <
+  if(BUILD_SHARED_LIBS OR LLVM_BUILD_LLVM_DYLIB)	      <
+    set(LLVM_ENABLE_PLUGINS_default ON)			      <
+  else()						      <
+    set(LLVM_ENABLE_PLUGINS_default OFF)		      <
+  endif()						      <
+else()							      <
+  set(LLVM_ENABLE_PLUGINS_default ${LLVM_ENABLE_PIC})	      <
+endif()							      <
+option(LLVM_ENABLE_PLUGINS "Enable plugin support" ${LLVM_ENA <
+							      <
+include(HandleLLVMOptions)					include(HandleLLVMOptions)
+
+							      >	# Verify that we can find a Python 2 interpreter.  Python 3 i
+							      >	# FIXME: We should support systems with only Python 3, but th
+							      >	# on LLDB.
+							      >	set(Python_ADDITIONAL_VERSIONS 2.7)
+include(FindPythonInterp)					include(FindPythonInterp)
+if( NOT PYTHONINTERP_FOUND )					if( NOT PYTHONINTERP_FOUND )
+  message(FATAL_ERROR						  message(FATAL_ERROR
+"Unable to find Python interpreter, required for builds and t	"Unable to find Python interpreter, required for builds and t
+
+Please install Python or specify the PYTHON_EXECUTABLE CMake 	Please install Python or specify the PYTHON_EXECUTABLE CMake 
+endif()								endif()
+
+if( ${PYTHON_VERSION_STRING} VERSION_LESS 2.7 )			if( ${PYTHON_VERSION_STRING} VERSION_LESS 2.7 )
+  message(FATAL_ERROR "Python 2.7 or newer is required")	  message(FATAL_ERROR "Python 2.7 or newer is required")
+endif()								endif()
+
+######								######
+# LLVMBuild Integration						# LLVMBuild Integration
+#								#
+# We use llvm-build to generate all the data required by the 	# We use llvm-build to generate all the data required by the 
+# build system in one swoop:					# build system in one swoop:
+#								#
+#  - We generate a file (a CMake fragment) in the object root	#  - We generate a file (a CMake fragment) in the object root
+#    all the definitions that are required by CMake.		#    all the definitions that are required by CMake.
+#								#
+#  - We generate the library table used by llvm-config.		#  - We generate the library table used by llvm-config.
+#								#
+#  - We generate the dependencies for the CMake fragment, so 	#  - We generate the dependencies for the CMake fragment, so 
+#    automatically reconfigure ourselves.			#    automatically reconfigure ourselves.
+
+set(LLVMBUILDTOOL "${LLVM_MAIN_SRC_DIR}/utils/llvm-build/llvm	set(LLVMBUILDTOOL "${LLVM_MAIN_SRC_DIR}/utils/llvm-build/llvm
+set(LLVMCONFIGLIBRARYDEPENDENCIESINC				set(LLVMCONFIGLIBRARYDEPENDENCIESINC
+  "${LLVM_BINARY_DIR}/tools/llvm-config/LibraryDependencies.i	  "${LLVM_BINARY_DIR}/tools/llvm-config/LibraryDependencies.i
+set(LLVMBUILDCMAKEFRAG						set(LLVMBUILDCMAKEFRAG
+  "${LLVM_BINARY_DIR}/LLVMBuild.cmake")				  "${LLVM_BINARY_DIR}/LLVMBuild.cmake")
+
+# Create the list of optional components that are enabled	# Create the list of optional components that are enabled
+if (LLVM_USE_INTEL_JITEVENTS)					if (LLVM_USE_INTEL_JITEVENTS)
+  set(LLVMOPTIONALCOMPONENTS IntelJITEvents)			  set(LLVMOPTIONALCOMPONENTS IntelJITEvents)
+endif (LLVM_USE_INTEL_JITEVENTS)				endif (LLVM_USE_INTEL_JITEVENTS)
+if (LLVM_USE_OPROFILE)						if (LLVM_USE_OPROFILE)
+  set(LLVMOPTIONALCOMPONENTS ${LLVMOPTIONALCOMPONENTS} OProfi	  set(LLVMOPTIONALCOMPONENTS ${LLVMOPTIONALCOMPONENTS} OProfi
+endif (LLVM_USE_OPROFILE)					endif (LLVM_USE_OPROFILE)
+if (LLVM_USE_PERF)						if (LLVM_USE_PERF)
+  set(LLVMOPTIONALCOMPONENTS ${LLVMOPTIONALCOMPONENTS} PerfJI	  set(LLVMOPTIONALCOMPONENTS ${LLVMOPTIONALCOMPONENTS} PerfJI
+endif (LLVM_USE_PERF)						endif (LLVM_USE_PERF)
+
+message(STATUS "Constructing LLVMBuild project information")	message(STATUS "Constructing LLVMBuild project information")
+execute_process(						execute_process(
+  COMMAND ${PYTHON_EXECUTABLE} -B ${LLVMBUILDTOOL}		  COMMAND ${PYTHON_EXECUTABLE} -B ${LLVMBUILDTOOL}
+            --native-target "${LLVM_NATIVE_ARCH}"		            --native-target "${LLVM_NATIVE_ARCH}"
+            --enable-targets "${LLVM_TARGETS_TO_BUILD}"		            --enable-targets "${LLVM_TARGETS_TO_BUILD}"
+            --enable-optional-components "${LLVMOPTIONALCOMPO	            --enable-optional-components "${LLVMOPTIONALCOMPO
+            --write-library-table ${LLVMCONFIGLIBRARYDEPENDEN	            --write-library-table ${LLVMCONFIGLIBRARYDEPENDEN
+            --write-cmake-fragment ${LLVMBUILDCMAKEFRAG}	            --write-cmake-fragment ${LLVMBUILDCMAKEFRAG}
+            OUTPUT_VARIABLE LLVMBUILDOUTPUT			            OUTPUT_VARIABLE LLVMBUILDOUTPUT
+            ERROR_VARIABLE LLVMBUILDERRORS			            ERROR_VARIABLE LLVMBUILDERRORS
+            OUTPUT_STRIP_TRAILING_WHITESPACE			            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_STRIP_TRAILING_WHITESPACE			            ERROR_STRIP_TRAILING_WHITESPACE
+  RESULT_VARIABLE LLVMBUILDRESULT)				  RESULT_VARIABLE LLVMBUILDRESULT)
+
+# On Win32, CMake doesn't properly handle piping the default 	# On Win32, CMake doesn't properly handle piping the default 
+# streams into the GUI console. So, we explicitly catch and r	# streams into the GUI console. So, we explicitly catch and r
+if( NOT "${LLVMBUILDOUTPUT}" STREQUAL "")			if( NOT "${LLVMBUILDOUTPUT}" STREQUAL "")
+  message(STATUS "llvm-build output: ${LLVMBUILDOUTPUT}")	  message(STATUS "llvm-build output: ${LLVMBUILDOUTPUT}")
+endif()								endif()
+if( NOT "${LLVMBUILDRESULT}" STREQUAL "0" )			if( NOT "${LLVMBUILDRESULT}" STREQUAL "0" )
+  message(FATAL_ERROR						  message(FATAL_ERROR
+    "Unexpected failure executing llvm-build: ${LLVMBUILDERRO	    "Unexpected failure executing llvm-build: ${LLVMBUILDERRO
+endif()								endif()
+
+# Include the generated CMake fragment. This will define prop	# Include the generated CMake fragment. This will define prop
+# LLVMBuild files in a format which is easy to consume from C	# LLVMBuild files in a format which is easy to consume from C
+# the dependencies so that CMake will reconfigure properly wh	# the dependencies so that CMake will reconfigure properly wh
+# files change.							# files change.
+include(${LLVMBUILDCMAKEFRAG})					include(${LLVMBUILDCMAKEFRAG})
+
+######								######
+
+# Configure all of the various header file fragments LLVM use	# Configure all of the various header file fragments LLVM use
+# configuration variables.					# configuration variables.
+set(LLVM_ENUM_TARGETS "")					set(LLVM_ENUM_TARGETS "")
+set(LLVM_ENUM_ASM_PRINTERS "")					set(LLVM_ENUM_ASM_PRINTERS "")
+set(LLVM_ENUM_ASM_PARSERS "")					set(LLVM_ENUM_ASM_PARSERS "")
+set(LLVM_ENUM_DISASSEMBLERS "")					set(LLVM_ENUM_DISASSEMBLERS "")
+foreach(t ${LLVM_TARGETS_TO_BUILD})				foreach(t ${LLVM_TARGETS_TO_BUILD})
+  set( td ${LLVM_MAIN_SRC_DIR}/lib/Target/${t} )		  set( td ${LLVM_MAIN_SRC_DIR}/lib/Target/${t} )
+
+  list(FIND LLVM_ALL_TARGETS ${t} idx)				  list(FIND LLVM_ALL_TARGETS ${t} idx)
+  list(FIND LLVM_EXPERIMENTAL_TARGETS_TO_BUILD ${t} idy)	  list(FIND LLVM_EXPERIMENTAL_TARGETS_TO_BUILD ${t} idy)
+  # At this point, LLVMBUILDTOOL already checked all the targ	  # At this point, LLVMBUILDTOOL already checked all the targ
+  # LLVM_TARGETS_TO_BUILD and LLVM_EXPERIMENTAL_TARGETS_TO_BU	  # LLVM_TARGETS_TO_BUILD and LLVM_EXPERIMENTAL_TARGETS_TO_BU
+  # this test just makes sure that any experimental targets w	  # this test just makes sure that any experimental targets w
+  # LLVM_EXPERIMENTAL_TARGETS_TO_BUILD, not LLVM_TARGETS_TO_B	  # LLVM_EXPERIMENTAL_TARGETS_TO_BUILD, not LLVM_TARGETS_TO_B
+  if( idx LESS 0 AND idy LESS 0 )				  if( idx LESS 0 AND idy LESS 0 )
+    message(FATAL_ERROR "The target `${t}' is experimental an	    message(FATAL_ERROR "The target `${t}' is experimental an
+      "via LLVM_EXPERIMENTAL_TARGETS_TO_BUILD.")		      "via LLVM_EXPERIMENTAL_TARGETS_TO_BUILD.")
+  else()							  else()
+    set(LLVM_ENUM_TARGETS "${LLVM_ENUM_TARGETS}LLVM_TARGET(${	    set(LLVM_ENUM_TARGETS "${LLVM_ENUM_TARGETS}LLVM_TARGET(${
+  endif()							  endif()
+
+  file(GLOB asmp_file "${td}/*AsmPrinter.cpp")			  file(GLOB asmp_file "${td}/*AsmPrinter.cpp")
+  if( asmp_file )						  if( asmp_file )
+    set(LLVM_ENUM_ASM_PRINTERS					    set(LLVM_ENUM_ASM_PRINTERS
+      "${LLVM_ENUM_ASM_PRINTERS}LLVM_ASM_PRINTER(${t})\n")	      "${LLVM_ENUM_ASM_PRINTERS}LLVM_ASM_PRINTER(${t})\n")
+  endif()							  endif()
+  if( EXISTS ${td}/AsmParser/CMakeLists.txt )			  if( EXISTS ${td}/AsmParser/CMakeLists.txt )
+    set(LLVM_ENUM_ASM_PARSERS					    set(LLVM_ENUM_ASM_PARSERS
+      "${LLVM_ENUM_ASM_PARSERS}LLVM_ASM_PARSER(${t})\n")	      "${LLVM_ENUM_ASM_PARSERS}LLVM_ASM_PARSER(${t})\n")
+  endif()							  endif()
+  if( EXISTS ${td}/Disassembler/CMakeLists.txt )		  if( EXISTS ${td}/Disassembler/CMakeLists.txt )
+    set(LLVM_ENUM_DISASSEMBLERS					    set(LLVM_ENUM_DISASSEMBLERS
+      "${LLVM_ENUM_DISASSEMBLERS}LLVM_DISASSEMBLER(${t})\n")	      "${LLVM_ENUM_DISASSEMBLERS}LLVM_DISASSEMBLER(${t})\n")
+  endif()							  endif()
+endforeach(t)							endforeach(t)
+
+# Produce the target definition files, which provide a way fo	# Produce the target definition files, which provide a way fo
+# include various classes of targets.				# include various classes of targets.
+configure_file(							configure_file(
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/AsmPrinters.def.in	  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/AsmPrinters.def.in
+  ${LLVM_INCLUDE_DIR}/llvm/Config/AsmPrinters.def		  ${LLVM_INCLUDE_DIR}/llvm/Config/AsmPrinters.def
+  )								  )
+configure_file(							configure_file(
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/AsmParsers.def.in	  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/AsmParsers.def.in
+  ${LLVM_INCLUDE_DIR}/llvm/Config/AsmParsers.def		  ${LLVM_INCLUDE_DIR}/llvm/Config/AsmParsers.def
+  )								  )
+configure_file(							configure_file(
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/Disassemblers.def.in	  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/Disassemblers.def.in
+  ${LLVM_INCLUDE_DIR}/llvm/Config/Disassemblers.def		  ${LLVM_INCLUDE_DIR}/llvm/Config/Disassemblers.def
+  )								  )
+configure_file(							configure_file(
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/Targets.def.in		  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/Targets.def.in
+  ${LLVM_INCLUDE_DIR}/llvm/Config/Targets.def			  ${LLVM_INCLUDE_DIR}/llvm/Config/Targets.def
+  )								  )
+
+# Configure the three LLVM configuration header files.		# Configure the three LLVM configuration header files.
+configure_file(							configure_file(
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/config.h.cmake		  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/config.h.cmake
+  ${LLVM_INCLUDE_DIR}/llvm/Config/config.h)			  ${LLVM_INCLUDE_DIR}/llvm/Config/config.h)
+configure_file(							configure_file(
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/llvm-config.h.cmake	  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/llvm-config.h.cmake
+  ${LLVM_INCLUDE_DIR}/llvm/Config/llvm-config.h)		  ${LLVM_INCLUDE_DIR}/llvm/Config/llvm-config.h)
+configure_file(							configure_file(
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/abi-breaking.h.cmake	  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/abi-breaking.h.cmake
+  ${LLVM_INCLUDE_DIR}/llvm/Config/abi-breaking.h)		  ${LLVM_INCLUDE_DIR}/llvm/Config/abi-breaking.h)
+
+# Add target for generating source rpm package.			# Add target for generating source rpm package.
+set(LLVM_SRPM_USER_BINARY_SPECFILE ${CMAKE_CURRENT_SOURCE_DIR	set(LLVM_SRPM_USER_BINARY_SPECFILE ${CMAKE_CURRENT_SOURCE_DIR
+    CACHE FILEPATH ".spec file to use for srpm generation")	    CACHE FILEPATH ".spec file to use for srpm generation")
+set(LLVM_SRPM_BINARY_SPECFILE ${CMAKE_CURRENT_BINARY_DIR}/llv	set(LLVM_SRPM_BINARY_SPECFILE ${CMAKE_CURRENT_BINARY_DIR}/llv
+set(LLVM_SRPM_DIR "${CMAKE_CURRENT_BINARY_DIR}/srpm")		set(LLVM_SRPM_DIR "${CMAKE_CURRENT_BINARY_DIR}/srpm")
+
+get_source_info(${CMAKE_CURRENT_SOURCE_DIR} revision reposito |	# SVN_REVISION and GIT_COMMIT get set by the call to add_vers
+string(LENGTH "${revision}" revision_length)		      |	# DUMMY_VAR contains a version string which we don't care abo
+if(revision MATCHES "^[0-9]+$" AND revision_length LESS 40)   |	add_version_info_from_vcs(DUMMY_VAR)
+  set(LLVM_RPM_SPEC_REVISION "r${revision}")		      |	if ( SVN_REVISION )
+else()							      |	  set(LLVM_RPM_SPEC_REVISION "r${SVN_REVISION}")
+  set(LLVM_RPM_SPEC_REVISION "${revision}")		      |	elseif ( GIT_COMMIT )
+							      >	  set (LLVM_RPM_SPEC_REVISION "g${GIT_COMMIT}")
+endif()								endif()
+
+configure_file(							configure_file(
+  ${LLVM_SRPM_USER_BINARY_SPECFILE}				  ${LLVM_SRPM_USER_BINARY_SPECFILE}
+  ${LLVM_SRPM_BINARY_SPECFILE} @ONLY)				  ${LLVM_SRPM_BINARY_SPECFILE} @ONLY)
+
+add_custom_target(srpm						add_custom_target(srpm
+  COMMAND cpack -G TGZ --config CPackSourceConfig.cmake -B ${	  COMMAND cpack -G TGZ --config CPackSourceConfig.cmake -B ${
+  COMMAND rpmbuild -bs --define '_topdir ${LLVM_SRPM_DIR}' ${	  COMMAND rpmbuild -bs --define '_topdir ${LLVM_SRPM_DIR}' ${
+set_target_properties(srpm PROPERTIES FOLDER "Misc")		set_target_properties(srpm PROPERTIES FOLDER "Misc")
+
+
+# They are not referenced. See set_output_directory().		# They are not referenced. See set_output_directory().
+set( CMAKE_RUNTIME_OUTPUT_DIRECTORY ${LLVM_BINARY_DIR}/bin )	set( CMAKE_RUNTIME_OUTPUT_DIRECTORY ${LLVM_BINARY_DIR}/bin )
+set( CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LLVM_BINARY_DIR}/lib${L	set( CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LLVM_BINARY_DIR}/lib${L
+set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LLVM_BINARY_DIR}/lib${L	set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LLVM_BINARY_DIR}/lib${L
+
+if(APPLE AND DARWIN_LTO_LIBRARY)				if(APPLE AND DARWIN_LTO_LIBRARY)
+  set(CMAKE_EXE_LINKER_FLAGS					  set(CMAKE_EXE_LINKER_FLAGS
+    "${CMAKE_EXE_LINKER_FLAGS} -Wl,-lto_library -Wl,${DARWIN_	    "${CMAKE_EXE_LINKER_FLAGS} -Wl,-lto_library -Wl,${DARWIN_
+  set(CMAKE_SHARED_LINKER_FLAGS					  set(CMAKE_SHARED_LINKER_FLAGS
+    "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-lto_library -Wl,${DARW	    "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-lto_library -Wl,${DARW
+  set(CMAKE_MODULE_LINKER_FLAGS					  set(CMAKE_MODULE_LINKER_FLAGS
+    "${CMAKE_MODULE_LINKER_FLAGS} -Wl,-lto_library -Wl,${DARW	    "${CMAKE_MODULE_LINKER_FLAGS} -Wl,-lto_library -Wl,${DARW
+endif()								endif()
+
+# Build with _XOPEN_SOURCE on AIX, as stray macros in _ALL_SO <
+# break things. In this case we need to enable the large-file <
+if (UNIX AND ${CMAKE_SYSTEM_NAME} MATCHES "AIX")	      <
+          add_definitions("-D_XOPEN_SOURCE=700")	      <
+          add_definitions("-D_LARGE_FILE_API")		      <
+endif()							      <
+							      <
+# Build with _FILE_OFFSET_BITS=64 on Solaris to match g++ >=  <
+if (UNIX AND ${CMAKE_SYSTEM_NAME} MATCHES "SunOS")	      <
+          add_definitions("-D_FILE_OFFSET_BITS=64")	      <
+endif()							      <
+							      <
+# Work around a broken bfd ld behavior. When linking a binary	# Work around a broken bfd ld behavior. When linking a binary
+# foo.so library, it will try to find any library that foo.so	# foo.so library, it will try to find any library that foo.so
+# check its symbols. This is wasteful (the check was done whe	# check its symbols. This is wasteful (the check was done whe
+# was created) and can fail since it is not the dynamic linke	# was created) and can fail since it is not the dynamic linke
+# doesn't know how to handle search paths correctly.		# doesn't know how to handle search paths correctly.
+if (UNIX AND NOT APPLE AND NOT ${CMAKE_SYSTEM_NAME} MATCHES "	if (UNIX AND NOT APPLE AND NOT ${CMAKE_SYSTEM_NAME} MATCHES "
+  set(CMAKE_EXE_LINKER_FLAGS					  set(CMAKE_EXE_LINKER_FLAGS
+      "${CMAKE_EXE_LINKER_FLAGS} -Wl,-allow-shlib-undefined")	      "${CMAKE_EXE_LINKER_FLAGS} -Wl,-allow-shlib-undefined")
+endif()								endif()
+
+set(CMAKE_INCLUDE_CURRENT_DIR ON)				set(CMAKE_INCLUDE_CURRENT_DIR ON)
+
+include_directories( ${LLVM_INCLUDE_DIR} ${LLVM_MAIN_INCLUDE_	include_directories( ${LLVM_INCLUDE_DIR} ${LLVM_MAIN_INCLUDE_
+
+# when crosscompiling import the executable targets from a fi	# when crosscompiling import the executable targets from a fi
+if(LLVM_USE_HOST_TOOLS)						if(LLVM_USE_HOST_TOOLS)
+  include(CrossCompile)						  include(CrossCompile)
+  llvm_create_cross_target(LLVM NATIVE "" Release)	      <
+endif(LLVM_USE_HOST_TOOLS)					endif(LLVM_USE_HOST_TOOLS)
+if(LLVM_TARGET_IS_CROSSCOMPILE_HOST)				if(LLVM_TARGET_IS_CROSSCOMPILE_HOST)
+# Dummy use to avoid CMake Warning: Manually-specified variab	# Dummy use to avoid CMake Warning: Manually-specified variab
+# (this is a variable that CrossCompile sets on recursive inv	# (this is a variable that CrossCompile sets on recursive inv
+endif()								endif()
+
+if(${CMAKE_SYSTEM_NAME} MATCHES "(FreeBSD|DragonFly)")		if(${CMAKE_SYSTEM_NAME} MATCHES "(FreeBSD|DragonFly)")
+  # On FreeBSD, /usr/local/* is not used by default. In order	  # On FreeBSD, /usr/local/* is not used by default. In order
+  # with libxml2, iconv.h, etc., we must add /usr/local paths	  # with libxml2, iconv.h, etc., we must add /usr/local paths
+  include_directories(SYSTEM "/usr/local/include")		  include_directories(SYSTEM "/usr/local/include")
+  link_directories("/usr/local/lib")				  link_directories("/usr/local/lib")
+endif(${CMAKE_SYSTEM_NAME} MATCHES "(FreeBSD|DragonFly)")	endif(${CMAKE_SYSTEM_NAME} MATCHES "(FreeBSD|DragonFly)")
+
+if( ${CMAKE_SYSTEM_NAME} MATCHES SunOS )			if( ${CMAKE_SYSTEM_NAME} MATCHES SunOS )
+   # special hack for Solaris to handle crazy system sys/regs	   # special hack for Solaris to handle crazy system sys/regs
+   include_directories("${LLVM_MAIN_INCLUDE_DIR}/llvm/Support	   include_directories("${LLVM_MAIN_INCLUDE_DIR}/llvm/Support
+endif( ${CMAKE_SYSTEM_NAME} MATCHES SunOS )			endif( ${CMAKE_SYSTEM_NAME} MATCHES SunOS )
+
+# Make sure we don't get -rdynamic in every binary. For those	# Make sure we don't get -rdynamic in every binary. For those
+# use export_executable_symbols(target).			# use export_executable_symbols(target).
+set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")			set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
+
+							      >	set(LLVM_PROFDATA_FILE "" CACHE FILEPATH
+							      >	  "Profiling data file to use when compiling in order to impr
+							      >
+							      >	if(LLVM_PROFDATA_FILE AND EXISTS ${LLVM_PROFDATA_FILE})
+							      >	  if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" )
+							      >	    add_definitions("-fprofile-instr-use=${LLVM_PROFDATA_FILE
+							      >	  else()
+							      >	    message(FATAL_ERROR "LLVM_PROFDATA_FILE can only be speci
+							      >	  endif()
+							      >	endif()
+							      >
+include(AddLLVM)						include(AddLLVM)
+include(TableGen)						include(TableGen)
+
+if( MINGW AND NOT "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" 	if( MINGW AND NOT "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" 
+  # People report that -O3 is unreliable on MinGW. The tradit	  # People report that -O3 is unreliable on MinGW. The tradit
+  # build also uses -O2 for that reason:			  # build also uses -O2 for that reason:
+  llvm_replace_compiler_option(CMAKE_CXX_FLAGS_RELEASE "-O3" 	  llvm_replace_compiler_option(CMAKE_CXX_FLAGS_RELEASE "-O3" 
+endif()								endif()
+
+# Put this before tblgen. Else we have a circular dependence.	# Put this before tblgen. Else we have a circular dependence.
+add_subdirectory(lib/Demangle)					add_subdirectory(lib/Demangle)
+add_subdirectory(lib/Support)					add_subdirectory(lib/Support)
+add_subdirectory(lib/TableGen)					add_subdirectory(lib/TableGen)
+
+add_subdirectory(utils/TableGen)				add_subdirectory(utils/TableGen)
+
+add_subdirectory(include/llvm)					add_subdirectory(include/llvm)
+
+add_subdirectory(lib)						add_subdirectory(lib)
+
+if( LLVM_INCLUDE_UTILS )					if( LLVM_INCLUDE_UTILS )
+  add_subdirectory(utils/FileCheck)				  add_subdirectory(utils/FileCheck)
+  add_subdirectory(utils/PerfectShuffle)			  add_subdirectory(utils/PerfectShuffle)
+  add_subdirectory(utils/count)					  add_subdirectory(utils/count)
+  add_subdirectory(utils/not)					  add_subdirectory(utils/not)
+  add_subdirectory(utils/yaml-bench)				  add_subdirectory(utils/yaml-bench)
+else()								else()
+  if ( LLVM_INCLUDE_TESTS )					  if ( LLVM_INCLUDE_TESTS )
+    message(FATAL_ERROR "Including tests when not building ut	    message(FATAL_ERROR "Including tests when not building ut
+    Either set LLVM_INCLUDE_UTILS to On, or set LLVM_INCLUDE_ |	    Either set LLVM_INCLUDE_UTILS to On, or set LLVM_INCLDE_T
+  endif()							  endif()
+endif()								endif()
+
+# Use LLVM_ADD_NATIVE_VISUALIZERS_TO_SOLUTION instead of LLVM	# Use LLVM_ADD_NATIVE_VISUALIZERS_TO_SOLUTION instead of LLVM
+if (LLVM_ADD_NATIVE_VISUALIZERS_TO_SOLUTION)			if (LLVM_ADD_NATIVE_VISUALIZERS_TO_SOLUTION)
+  add_subdirectory(utils/LLVMVisualizers)			  add_subdirectory(utils/LLVMVisualizers)
+endif()								endif()
+
+foreach( binding ${LLVM_BINDINGS_LIST} )			foreach( binding ${LLVM_BINDINGS_LIST} )
+  if( EXISTS "${LLVM_MAIN_SRC_DIR}/bindings/${binding}/CMakeL	  if( EXISTS "${LLVM_MAIN_SRC_DIR}/bindings/${binding}/CMakeL
+    add_subdirectory(bindings/${binding})			    add_subdirectory(bindings/${binding})
+  endif()							  endif()
+endforeach()							endforeach()
+
+add_subdirectory(projects)					add_subdirectory(projects)
+
+if( LLVM_INCLUDE_TOOLS )					if( LLVM_INCLUDE_TOOLS )
+  add_subdirectory(tools)					  add_subdirectory(tools)
+endif()								endif()
+
+if( LLVM_INCLUDE_RUNTIMES )					if( LLVM_INCLUDE_RUNTIMES )
+  add_subdirectory(runtimes)					  add_subdirectory(runtimes)
+endif()								endif()
+
+if( LLVM_INCLUDE_EXAMPLES )					if( LLVM_INCLUDE_EXAMPLES )
+  add_subdirectory(examples)					  add_subdirectory(examples)
+endif()								endif()
+
+if( LLVM_INCLUDE_TESTS )					if( LLVM_INCLUDE_TESTS )
+  if(EXISTS ${LLVM_MAIN_SRC_DIR}/projects/test-suite AND TARG	  if(EXISTS ${LLVM_MAIN_SRC_DIR}/projects/test-suite AND TARG
+    include(LLVMExternalProjectUtils)				    include(LLVMExternalProjectUtils)
+    llvm_ExternalProject_Add(test-suite ${LLVM_MAIN_SRC_DIR}/	    llvm_ExternalProject_Add(test-suite ${LLVM_MAIN_SRC_DIR}/
+      USE_TOOLCHAIN						      USE_TOOLCHAIN
+      EXCLUDE_FROM_ALL						      EXCLUDE_FROM_ALL
+      NO_INSTALL						      NO_INSTALL
+      ALWAYS_CLEAN)						      ALWAYS_CLEAN)
+  endif()							  endif()
+  add_subdirectory(utils/lit)					  add_subdirectory(utils/lit)
+  add_subdirectory(test)					  add_subdirectory(test)
+  add_subdirectory(unittests)					  add_subdirectory(unittests)
+  if( LLVM_INCLUDE_UTILS )					  if( LLVM_INCLUDE_UTILS )
+    add_subdirectory(utils/unittest)				    add_subdirectory(utils/unittest)
+  endif()							  endif()
+
+  if (WIN32)							  if (WIN32)
+    # This utility is used to prevent crashing tests from cal	    # This utility is used to prevent crashing tests from cal
+    # Windows.							    # Windows.
+    add_subdirectory(utils/KillTheDoctor)			    add_subdirectory(utils/KillTheDoctor)
+  endif()							  endif()
+
+  # Add a global check rule now that all subdirectories have 	  # Add a global check rule now that all subdirectories have 
+  # and we know the total set of lit testsuites.		  # and we know the total set of lit testsuites.
+  get_property(LLVM_LIT_TESTSUITES GLOBAL PROPERTY LLVM_LIT_T	  get_property(LLVM_LIT_TESTSUITES GLOBAL PROPERTY LLVM_LIT_T
+  get_property(LLVM_LIT_PARAMS GLOBAL PROPERTY LLVM_LIT_PARAM	  get_property(LLVM_LIT_PARAMS GLOBAL PROPERTY LLVM_LIT_PARAM
+  get_property(LLVM_LIT_DEPENDS GLOBAL PROPERTY LLVM_LIT_DEPE	  get_property(LLVM_LIT_DEPENDS GLOBAL PROPERTY LLVM_LIT_DEPE
+  get_property(LLVM_LIT_EXTRA_ARGS GLOBAL PROPERTY LLVM_LIT_E	  get_property(LLVM_LIT_EXTRA_ARGS GLOBAL PROPERTY LLVM_LIT_E
+  get_property(LLVM_ADDITIONAL_TEST_TARGETS			  get_property(LLVM_ADDITIONAL_TEST_TARGETS
+               GLOBAL PROPERTY LLVM_ADDITIONAL_TEST_TARGETS)	               GLOBAL PROPERTY LLVM_ADDITIONAL_TEST_TARGETS)
+  get_property(LLVM_ADDITIONAL_TEST_DEPENDS			  get_property(LLVM_ADDITIONAL_TEST_DEPENDS
+               GLOBAL PROPERTY LLVM_ADDITIONAL_TEST_DEPENDS)	               GLOBAL PROPERTY LLVM_ADDITIONAL_TEST_DEPENDS)
+  add_lit_target(check-all					  add_lit_target(check-all
+    "Running all regression tests"				    "Running all regression tests"
+    ${LLVM_LIT_TESTSUITES}					    ${LLVM_LIT_TESTSUITES}
+    PARAMS ${LLVM_LIT_PARAMS}					    PARAMS ${LLVM_LIT_PARAMS}
+    DEPENDS ${LLVM_LIT_DEPENDS} ${LLVM_ADDITIONAL_TEST_TARGET	    DEPENDS ${LLVM_LIT_DEPENDS} ${LLVM_ADDITIONAL_TEST_TARGET
+    ARGS ${LLVM_LIT_EXTRA_ARGS}					    ARGS ${LLVM_LIT_EXTRA_ARGS}
+    )								    )
+  if(TARGET check-runtimes)					  if(TARGET check-runtimes)
+    add_dependencies(check-all check-runtimes)			    add_dependencies(check-all check-runtimes)
+  endif()							  endif()
+  add_custom_target(test-depends				  add_custom_target(test-depends
+                    DEPENDS ${LLVM_LIT_DEPENDS} ${LLVM_ADDITI	                    DEPENDS ${LLVM_LIT_DEPENDS} ${LLVM_ADDITI
+  set_target_properties(test-depends PROPERTIES FOLDER "Tests	  set_target_properties(test-depends PROPERTIES FOLDER "Tests
+endif()								endif()
+
+if (LLVM_INCLUDE_DOCS)						if (LLVM_INCLUDE_DOCS)
+  add_subdirectory(docs)					  add_subdirectory(docs)
+endif()								endif()
+
+add_subdirectory(cmake/modules)					add_subdirectory(cmake/modules)
+
+# Do this last so that all lit targets have already been crea	# Do this last so that all lit targets have already been crea
+if (LLVM_INCLUDE_UTILS)						if (LLVM_INCLUDE_UTILS)
+  add_subdirectory(utils/llvm-lit)				  add_subdirectory(utils/llvm-lit)
+endif()								endif()
+
+if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)				if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
+  install(DIRECTORY include/llvm include/llvm-c			  install(DIRECTORY include/llvm include/llvm-c
+    DESTINATION include						    DESTINATION include
+    COMPONENT llvm-headers					    COMPONENT llvm-headers
+    FILES_MATCHING						    FILES_MATCHING
+    PATTERN "*.def"						    PATTERN "*.def"
+    PATTERN "*.h"						    PATTERN "*.h"
+    PATTERN "*.td"						    PATTERN "*.td"
+    PATTERN "*.inc"						    PATTERN "*.inc"
+    PATTERN "LICENSE.TXT"					    PATTERN "LICENSE.TXT"
+    PATTERN ".svn" EXCLUDE					    PATTERN ".svn" EXCLUDE
+    )								    )
+
+  install(DIRECTORY ${LLVM_INCLUDE_DIR}/llvm ${LLVM_INCLUDE_D	  install(DIRECTORY ${LLVM_INCLUDE_DIR}/llvm ${LLVM_INCLUDE_D
+    DESTINATION include						    DESTINATION include
+    COMPONENT llvm-headers					    COMPONENT llvm-headers
+    FILES_MATCHING						    FILES_MATCHING
+    PATTERN "*.def"						    PATTERN "*.def"
+    PATTERN "*.h"						    PATTERN "*.h"
+    PATTERN "*.gen"						    PATTERN "*.gen"
+    PATTERN "*.inc"						    PATTERN "*.inc"
+    # Exclude include/llvm/CMakeFiles/intrinsics_gen.dir, mat	    # Exclude include/llvm/CMakeFiles/intrinsics_gen.dir, mat
+    PATTERN "CMakeFiles" EXCLUDE				    PATTERN "CMakeFiles" EXCLUDE
+    PATTERN "config.h" EXCLUDE					    PATTERN "config.h" EXCLUDE
+    PATTERN ".svn" EXCLUDE					    PATTERN ".svn" EXCLUDE
+    )								    )
+
+  if (LLVM_INSTALL_MODULEMAPS)				      <
+    install(DIRECTORY include/llvm include/llvm-c	      <
+            DESTINATION include				      <
+            COMPONENT llvm-headers			      <
+            FILES_MATCHING				      <
+            PATTERN "module.modulemap"			      <
+            )						      <
+    install(FILES include/llvm/module.install.modulemap	      <
+            DESTINATION include/llvm			      <
+            COMPONENT llvm-headers			      <
+            RENAME "module.extern.modulemap"		      <
+            )						      <
+  endif(LLVM_INSTALL_MODULEMAPS)			      <
+							      <
+  # Installing the headers needs to depend on generating any 	  # Installing the headers needs to depend on generating any 
+  # tablegen'd headers.						  # tablegen'd headers.
+  add_custom_target(llvm-headers DEPENDS intrinsics_gen)	  add_custom_target(llvm-headers DEPENDS intrinsics_gen)
+  set_target_properties(llvm-headers PROPERTIES FOLDER "Misc"	  set_target_properties(llvm-headers PROPERTIES FOLDER "Misc"
+
+  if (NOT LLVM_ENABLE_IDE)					  if (NOT LLVM_ENABLE_IDE)
+    add_llvm_install_targets(install-llvm-headers		    add_llvm_install_targets(install-llvm-headers
+                             DEPENDS llvm-headers		                             DEPENDS llvm-headers
+                             COMPONENT llvm-headers)		                             COMPONENT llvm-headers)
+  endif()							  endif()
+
+  # Custom target to install all libraries.			  # Custom target to install all libraries.
+  add_custom_target(llvm-libraries)				  add_custom_target(llvm-libraries)
+  set_target_properties(llvm-libraries PROPERTIES FOLDER "Mis	  set_target_properties(llvm-libraries PROPERTIES FOLDER "Mis
+
+  if (NOT LLVM_ENABLE_IDE)					  if (NOT LLVM_ENABLE_IDE)
+    add_llvm_install_targets(install-llvm-libraries		    add_llvm_install_targets(install-llvm-libraries
+                             DEPENDS llvm-libraries		                             DEPENDS llvm-libraries
+                             COMPONENT llvm-libraries)		                             COMPONENT llvm-libraries)
+  endif()							  endif()
+
+  get_property(LLVM_LIBS GLOBAL PROPERTY LLVM_LIBS)		  get_property(LLVM_LIBS GLOBAL PROPERTY LLVM_LIBS)
+  if(LLVM_LIBS)							  if(LLVM_LIBS)
+    list(REMOVE_DUPLICATES LLVM_LIBS)				    list(REMOVE_DUPLICATES LLVM_LIBS)
+    foreach(lib ${LLVM_LIBS})					    foreach(lib ${LLVM_LIBS})
+      add_dependencies(llvm-libraries ${lib})			      add_dependencies(llvm-libraries ${lib})
+      if (NOT LLVM_ENABLE_IDE)					      if (NOT LLVM_ENABLE_IDE)
+        add_dependencies(install-llvm-libraries install-${lib	        add_dependencies(install-llvm-libraries install-${lib
+      endif()							      endif()
+    endforeach()						    endforeach()
+  endif()							  endif()
+endif()								endif()
+
+# This must be at the end of the LLVM root CMakeLists file be	# This must be at the end of the LLVM root CMakeLists file be
+# after all targets are created.				# after all targets are created.
+include(LLVMDistributionSupport)			      |	if(LLVM_DISTRIBUTION_COMPONENTS)
+llvm_distribution_add_targets()				      |	  if(LLVM_ENABLE_IDE)
+							      >	    message(FATAL_ERROR "LLVM_DISTRIBUTION_COMPONENTS cannot 
+							      >	  endif()
+							      >
+							      >	  add_custom_target(distribution)
+							      >	  add_custom_target(install-distribution)
+							      >	  add_custom_target(install-distribution-stripped)
+							      >	  foreach(target ${LLVM_DISTRIBUTION_COMPONENTS} ${LLVM_RUNTI
+							      >	    if(TARGET ${target})
+							      >	      add_dependencies(distribution ${target})
+							      >	    else()
+							      >	      message(SEND_ERROR "Specified distribution component '$
+							      >	    endif()
+							      >
+							      >	    if(TARGET install-${target})
+							      >	      add_dependencies(install-distribution install-${target}
+							      >	    else()
+							      >	      message(SEND_ERROR "Specified distribution component '$
+							      >	    endif()
+							      >
+							      >	    if(TARGET install-${target}-stripped)
+							      >	      add_dependencies(install-distribution-stripped install-
+							      >	    else()
+							      >	      message(SEND_ERROR "Specified distribution component '$
+							      >	                         " Its installation target creation s
+							      >	                         " or you should manually create the 
+							      >	    endif()
+							      >	  endforeach()
+							      >	endif()
+
+# This allows us to deploy the Universal CRT DLLs by passing 	# This allows us to deploy the Universal CRT DLLs by passing 
+if (MSVC AND CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows" AND CM	if (MSVC AND CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows" AND CM
+  include(InstallRequiredSystemLibraries)			  include(InstallRequiredSystemLibraries)
+endif()								endif()
+
+if (LLVM_INCLUDE_BENCHMARKS)					if (LLVM_INCLUDE_BENCHMARKS)
+  # Override benchmark defaults so that when the library itse	  # Override benchmark defaults so that when the library itse
+  # modifications are not lost.					  # modifications are not lost.
+  set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "Disable benchm	  set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "Disable benchm
+  set(BENCHMARK_ENABLE_EXCEPTIONS OFF CACHE BOOL "Disable ben	  set(BENCHMARK_ENABLE_EXCEPTIONS OFF CACHE BOOL "Disable ben
+  set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "Don't install 	  set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "Don't install 
+  set(BENCHMARK_DOWNLOAD_DEPENDENCIES OFF CACHE BOOL "Don't d	  set(BENCHMARK_DOWNLOAD_DEPENDENCIES OFF CACHE BOOL "Don't d
+  set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "Disable Go	  set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "Disable Go
+  # Since LLVM requires C++11 it is safe to assume that std::	  # Since LLVM requires C++11 it is safe to assume that std::
+  set(HAVE_STD_REGEX ON CACHE BOOL "OK" FORCE)			  set(HAVE_STD_REGEX ON CACHE BOOL "OK" FORCE)
+
+  add_subdirectory(utils/benchmark)				  add_subdirectory(utils/benchmark)
+  add_subdirectory(benchmarks)					  add_subdirectory(benchmarks)
+endif()							      <
+							      <
+if (LLVM_INCLUDE_UTILS AND LLVM_INCLUDE_TOOLS)		      <
+  add_subdirectory(utils/llvm-locstats)			      <
+endif()								endif()
+diff -y llvm/CODE_OWNERS.TXT rvv-llvm-rvv-2018-11-01/CODE_OWNERS.TXT
+This file is a list of the people responsible for ensuring th	This file is a list of the people responsible for ensuring th
+particular part of LLVM are reviewed, either by themself or b	particular part of LLVM are reviewed, either by themself or b
+They are also the gatekeepers for their part of LLVM, with th	They are also the gatekeepers for their part of LLVM, with th
+what goes in or not.						what goes in or not.
+
+The list is sorted by surname and formatted to allow easy gre	The list is sorted by surname and formatted to allow easy gre
+beautification by scripts. The fields are: name (N), email (E	beautification by scripts. The fields are: name (N), email (E
+(W), PGP key ID and fingerprint (P), description (D), snail-m	(W), PGP key ID and fingerprint (P), description (D), snail-m
+(S) and (I) IRC handle. Each entry should contain at least th	(S) and (I) IRC handle. Each entry should contain at least th
+(D) fields.							(D) fields.
+
+N: Simon Atanasyan						N: Simon Atanasyan
+E: simon@atanasyan.com						E: simon@atanasyan.com
+D: MIPS Backend (lib/Target/Mips/*)				D: MIPS Backend (lib/Target/Mips/*)
+
+N: Justin Bogner						N: Justin Bogner
+E: mail@justinbogner.com					E: mail@justinbogner.com
+D: InstrProfiling and related parts of ProfileData		D: InstrProfiling and related parts of ProfileData
+D: SelectionDAG (lib/CodeGen/SelectionDAG/*)			D: SelectionDAG (lib/CodeGen/SelectionDAG/*)
+
+N: Alex Bradbury						N: Alex Bradbury
+E: asb@lowrisc.org						E: asb@lowrisc.org
+D: RISC-V backend (lib/Target/RISCV/*)				D: RISC-V backend (lib/Target/RISCV/*)
+
+N: Matthias Braun						N: Matthias Braun
+E: matze@braunis.de						E: matze@braunis.de
+I: MatzeB							I: MatzeB
+D: Instruction Scheduling					D: Instruction Scheduling
+
+N: Chandler Carruth						N: Chandler Carruth
+E: chandlerc@gmail.com						E: chandlerc@gmail.com
+E: chandlerc@google.com						E: chandlerc@google.com
+D: Config, ADT, Support, inlining & related passes, SROA/mem2	D: Config, ADT, Support, inlining & related passes, SROA/mem2
+
+N: Evan Cheng							N: Evan Cheng
+E: evan.cheng@apple.com						E: evan.cheng@apple.com
+D: parts of code generator not covered by someone else		D: parts of code generator not covered by someone else
+
+N: Eric Christopher						N: Eric Christopher
+E: echristo@gmail.com						E: echristo@gmail.com
+D: Debug Information, inline assembly				D: Debug Information, inline assembly
+
+N: Andrey Churbanov						N: Andrey Churbanov
+E: andrey.churbanov@intel.com					E: andrey.churbanov@intel.com
+D: OpenMP runtime library					D: OpenMP runtime library
+
+N: Greg Clayton							N: Greg Clayton
+E: clayborg@gmail.com						E: clayborg@gmail.com
+D: LLDB								D: LLDB
+
+N: Pete Couperus						N: Pete Couperus
+E: petecoup@synopsys.com					E: petecoup@synopsys.com
+D: ARC backend (lib/Target/ARC/*)				D: ARC backend (lib/Target/ARC/*)
+
+N: Sanjoy Das							N: Sanjoy Das
+E: sanjoy@playingwithpointers.com				E: sanjoy@playingwithpointers.com
+D: IndVar Simplify, Scalar Evolution				D: IndVar Simplify, Scalar Evolution
+
+N: Marshall Clow						N: Marshall Clow
+E: mclow.lists@gmail.com					E: mclow.lists@gmail.com
+D: libc++							D: libc++
+
+N: Peter Collingbourne						N: Peter Collingbourne
+E: peter@pcc.me.uk						E: peter@pcc.me.uk
+D: llgo, libLTO (lib/LTO/* tools/lto/*), LLVM Bitcode (lib/Bi	D: llgo, libLTO (lib/LTO/* tools/lto/*), LLVM Bitcode (lib/Bi
+
+N: Quentin Colombet						N: Quentin Colombet
+E: quentin.colombet@gmail.com					E: quentin.colombet@gmail.com
+D: Loop Strength Reduction, Register allocators			D: Loop Strength Reduction, Register allocators
+
+N: Andrea Di Biagio						N: Andrea Di Biagio
+E: andrea.dibiagio@sony.com					E: andrea.dibiagio@sony.com
+E: andrea.dibiagio@gmail.com					E: andrea.dibiagio@gmail.com
+D: MCA, llvm-mca					      |	D: llvm-mca
+
+N: Duncan P. N. Exon Smith					N: Duncan P. N. Exon Smith
+E: dexonsmith@apple.com						E: dexonsmith@apple.com
+D: Branch weights and BlockFrequencyInfo			D: Branch weights and BlockFrequencyInfo
+
+N: Hal Finkel							N: Hal Finkel
+E: hfinkel@anl.gov						E: hfinkel@anl.gov
+D: The loop reroller, alias analysis and the PowerPC target	D: The loop reroller, alias analysis and the PowerPC target
+
+N: Dan Gohman							N: Dan Gohman
+E: sunfish@mozilla.com						E: sunfish@mozilla.com
+D: WebAssembly Backend (lib/Target/WebAssembly/*)		D: WebAssembly Backend (lib/Target/WebAssembly/*)
+
+N: Renato Golin							N: Renato Golin
+E: renato.golin@linaro.org					E: renato.golin@linaro.org
+D: ARM Linux support						D: ARM Linux support
+
+N: Venkatraman Govindaraju					N: Venkatraman Govindaraju
+E: venkatra@cs.wisc.edu						E: venkatra@cs.wisc.edu
+D: Sparc Backend (lib/Target/Sparc/*)				D: Sparc Backend (lib/Target/Sparc/*)
+
+N: Tobias Grosser						N: Tobias Grosser
+E: tobias@grosser.es						E: tobias@grosser.es
+D: Polly							D: Polly
+
+N: James Grosbach						N: James Grosbach
+E: grosbach@apple.com						E: grosbach@apple.com
+D: MC layer							D: MC layer
+
+N: Justin Holewinski						N: Justin Holewinski
+E: jholewinski@nvidia.com					E: jholewinski@nvidia.com
+D: NVPTX Target (lib/Target/NVPTX/*)				D: NVPTX Target (lib/Target/NVPTX/*)
+
+N: Lang Hames							N: Lang Hames
+E: lhames@gmail.com						E: lhames@gmail.com
+D: MCJIT, RuntimeDyld and JIT event listeners, Orcish Warchie	D: MCJIT, RuntimeDyld and JIT event listeners, Orcish Warchie
+
+N: Teresa Johnson						N: Teresa Johnson
+E: tejohnson@google.com						E: tejohnson@google.com
+D: Gold plugin (tools/gold/*) and IR Linker			D: Gold plugin (tools/gold/*) and IR Linker
+
+N: Galina Kistanova						N: Galina Kistanova
+E: gkistanova@gmail.com						E: gkistanova@gmail.com
+D: LLVM Buildbot						D: LLVM Buildbot
+
+N: Anton Korobeynikov						N: Anton Korobeynikov
+E: anton@korobeynikov.info					E: anton@korobeynikov.info
+D: Exception handling, Windows codegen, ARM EABI		D: Exception handling, Windows codegen, ARM EABI
+
+N: Benjamin Kramer						N: Benjamin Kramer
+E: benny.kra@gmail.com						E: benny.kra@gmail.com
+D: DWARF Parser							D: DWARF Parser
+
+N: Michael Kuperstein						N: Michael Kuperstein
+E: mkuper@google.com						E: mkuper@google.com
+D: Loop Vectorizer						D: Loop Vectorizer
+
+N: Sergei Larin							N: Sergei Larin
+E: slarin@codeaurora.org					E: slarin@codeaurora.org
+D: VLIW Instruction Scheduling, Packetization			D: VLIW Instruction Scheduling, Packetization
+
+N: Chris Lattner						N: Chris Lattner
+E: sabre@nondot.org						E: sabre@nondot.org
+W: http://nondot.org/~sabre/					W: http://nondot.org/~sabre/
+D: Everything not covered by someone else			D: Everything not covered by someone else
+
+N: Robert Lytton						N: Robert Lytton
+E: robert@xmos.com						E: robert@xmos.com
+D: XCore Backend						D: XCore Backend
+
+N: David Majnemer						N: David Majnemer
+E: david.majnemer@gmail.com					E: david.majnemer@gmail.com
+D: IR Constant Folder, InstCombine				D: IR Constant Folder, InstCombine
+
+N: Dylan McKay							N: Dylan McKay
+E: me@dylanmckay.io						E: me@dylanmckay.io
+D: AVR Backend							D: AVR Backend
+
+N: Tim Northover						N: Tim Northover
+E: t.p.northover@gmail.com					E: t.p.northover@gmail.com
+D: AArch64 backend, misc ARM backend				D: AArch64 backend, misc ARM backend
+
+N: Diego Novillo						N: Diego Novillo
+E: dnovillo@google.com						E: dnovillo@google.com
+D: SampleProfile and related parts of ProfileData		D: SampleProfile and related parts of ProfileData
+
+N: Jakob Olesen							N: Jakob Olesen
+E: stoklund@2pi.dk						E: stoklund@2pi.dk
+D: TableGen							D: TableGen
+
+N: Krzysztof Parzyszek						N: Krzysztof Parzyszek
+E: kparzysz@quicinc.com					      |	E: kparzysz@codeaurora.org
+D: Hexagon Backend						D: Hexagon Backend
+
+N: Jacques Pienaar						N: Jacques Pienaar
+E: jpienaar@google.com						E: jpienaar@google.com
+D: Lanai Backend						D: Lanai Backend
+
+N: Paul Robinson						N: Paul Robinson
+E: paul_robinson@playstation.sony.com				E: paul_robinson@playstation.sony.com
+D: Sony PlayStation®4 support					D: Sony PlayStation®4 support
+
+N: Chad Rosier							N: Chad Rosier
+E: mcrosier@codeaurora.org					E: mcrosier@codeaurora.org
+D: Fast-Isel							D: Fast-Isel
+
+N: Duncan Sands							N: Duncan Sands
+E: baldrick@free.fr						E: baldrick@free.fr
+D: DragonEgg							D: DragonEgg
+
+N: Kostya Serebryany						N: Kostya Serebryany
+E: kcc@google.com						E: kcc@google.com
+D: AddressSanitizer, ThreadSanitizer (LLVM parts)		D: AddressSanitizer, ThreadSanitizer (LLVM parts)
+
+N: Michael Spencer						N: Michael Spencer
+E: bigcheesegs@gmail.com					E: bigcheesegs@gmail.com
+D: Windows parts of Support, Object, ar, nm, objdump, ranlib,	D: Windows parts of Support, Object, ar, nm, objdump, ranlib,
+
+N: Alexei Starovoitov						N: Alexei Starovoitov
+E: alexei.starovoitov@gmail.com					E: alexei.starovoitov@gmail.com
+D: BPF backend							D: BPF backend
+
+N: Tom Stellard							N: Tom Stellard
+E: tstellar@redhat.com						E: tstellar@redhat.com
+D: Stable release management (x.y.[1-9] releases), AMDGPU Bac	D: Stable release management (x.y.[1-9] releases), AMDGPU Bac
+
+N: Evgeniy Stepanov						N: Evgeniy Stepanov
+E: eugenis@google.com						E: eugenis@google.com
+D: MemorySanitizer (LLVM part)					D: MemorySanitizer (LLVM part)
+
+N: Craig Topper							N: Craig Topper
+E: craig.topper@gmail.com					E: craig.topper@gmail.com
+E: craig.topper@intel.com					E: craig.topper@intel.com
+D: X86 Backend							D: X86 Backend
+
+N: Ulrich Weigand						N: Ulrich Weigand
+E: uweigand@de.ibm.com						E: uweigand@de.ibm.com
+D: SystemZ Backend						D: SystemZ Backend
+
+N: Hans Wennborg						N: Hans Wennborg
+E: hans@chromium.org						E: hans@chromium.org
+D: Release management (x.y.0 releases)				D: Release management (x.y.0 releases)
+
+N: whitequark							N: whitequark
+E: whitequark@whitequark.org					E: whitequark@whitequark.org
+D: C API, OCaml bindings					D: C API, OCaml bindings
+
+N: Jake Ehrlich							N: Jake Ehrlich
+E: jakehehrlich@google.com					E: jakehehrlich@google.com
+D: llvm-objcopy (tools/llvm-objcopy)				D: llvm-objcopy (tools/llvm-objcopy)
+							      <
+N: Martin Storsjö					      <
+E: martin@martin.st					      <
+D: MinGW						      <
+diff -y llvm/configure rvv-llvm-rvv-2018-11-01/configure
+#! /bin/sh							#! /bin/sh
+echo "#######################################################	echo "#######################################################
+echo "#######################################################	echo "#######################################################
+echo "The LLVM project no longer supports building with confi	echo "The LLVM project no longer supports building with confi
+echo ""								echo ""
+echo "Please migrate to the CMake-based build system."		echo "Please migrate to the CMake-based build system."
+echo "For more information see: http://llvm.org/docs/CMake.ht	echo "For more information see: http://llvm.org/docs/CMake.ht
+echo "#######################################################	echo "#######################################################
+echo "#######################################################	echo "#######################################################
+exit 1								exit 1
+diff -y llvm/CREDITS.TXT rvv-llvm-rvv-2018-11-01/CREDITS.TXT
+This file is a partial list of people who have contributed to	This file is a partial list of people who have contributed to
+project. If you have contributed a patch or made some other c |	project.  If you have contributed a patch or made some other 
+LLVM, please submit a patch to this file to add yourself, and	LLVM, please submit a patch to this file to add yourself, and
+done!								done!
+
+The list is sorted by surname and formatted to allow easy gre	The list is sorted by surname and formatted to allow easy gre
+beautification by scripts.  The fields are: name (N), email (	beautification by scripts.  The fields are: name (N), email (
+(W), PGP key ID and fingerprint (P), description (D), snail-m	(W), PGP key ID and fingerprint (P), description (D), snail-m
+(S), and (I) IRC handle.					(S), and (I) IRC handle.
+
+N: Vikram Adve							N: Vikram Adve
+E: vadve@cs.uiuc.edu						E: vadve@cs.uiuc.edu
+W: http://www.cs.uiuc.edu/~vadve/				W: http://www.cs.uiuc.edu/~vadve/
+D: The Sparc64 backend, provider of much wisdom, and motivato	D: The Sparc64 backend, provider of much wisdom, and motivato
+
+N: Owen Anderson						N: Owen Anderson
+E: resistor@mac.com						E: resistor@mac.com
+D: LCSSA pass and related LoopUnswitch work			D: LCSSA pass and related LoopUnswitch work
+D: GVNPRE pass, DataLayout refactoring, random improvements	D: GVNPRE pass, DataLayout refactoring, random improvements
+
+N: Henrik Bach							N: Henrik Bach
+D: MingW Win32 API portability layer				D: MingW Win32 API portability layer
+
+N: Aaron Ballman						N: Aaron Ballman
+E: aaron@aaronballman.com					E: aaron@aaronballman.com
+D: Clang frontend, frontend attributes, Windows support, gene	D: Clang frontend, frontend attributes, Windows support, gene
+I: AaronBallman							I: AaronBallman
+
+N: Nate Begeman							N: Nate Begeman
+E: natebegeman@mac.com						E: natebegeman@mac.com
+D: PowerPC backend developer					D: PowerPC backend developer
+D: Target-independent code generator and analysis improvement	D: Target-independent code generator and analysis improvement
+
+N: Daniel Berlin						N: Daniel Berlin
+E: dberlin@dberlin.org						E: dberlin@dberlin.org
+D: ET-Forest implementation.					D: ET-Forest implementation.
+D: Sparse bitmap						D: Sparse bitmap
+
+N: Geoff Berry							N: Geoff Berry
+E: gberry@codeaurora.org					E: gberry@codeaurora.org
+E: gcb@acm.org							E: gcb@acm.org
+D: AArch64 backend improvements					D: AArch64 backend improvements
+D: Added EarlyCSE MemorySSA support				D: Added EarlyCSE MemorySSA support
+D: CodeGen improvements						D: CodeGen improvements
+
+N: David Blaikie						N: David Blaikie
+E: dblaikie@gmail.com						E: dblaikie@gmail.com
+D: General bug fixing/fit & finish, mostly in Clang		D: General bug fixing/fit & finish, mostly in Clang
+
+N: Neil Booth							N: Neil Booth
+E: neil@daikokuya.co.uk						E: neil@daikokuya.co.uk
+D: APFloat implementation.					D: APFloat implementation.
+
+N: Alex Bradbury						N: Alex Bradbury
+E: asb@lowrisc.org						E: asb@lowrisc.org
+D: RISC-V backend						D: RISC-V backend
+
+N: Misha Brukman						N: Misha Brukman
+E: brukman+llvm@uiuc.edu					E: brukman+llvm@uiuc.edu
+W: http://misha.brukman.net					W: http://misha.brukman.net
+D: Portions of X86 and Sparc JIT compilers, PowerPC backend	D: Portions of X86 and Sparc JIT compilers, PowerPC backend
+D: Incremental bitcode loader					D: Incremental bitcode loader
+
+N: Cameron Buschardt						N: Cameron Buschardt
+E: buschard@uiuc.edu						E: buschard@uiuc.edu
+D: The `mem2reg' pass - promotes values stored in memory to r	D: The `mem2reg' pass - promotes values stored in memory to r
+
+N: Brendon Cahoon						N: Brendon Cahoon
+E: bcahoon@codeaurora.org					E: bcahoon@codeaurora.org
+D: Loop unrolling with run-time trip counts.			D: Loop unrolling with run-time trip counts.
+
+N: Chandler Carruth						N: Chandler Carruth
+E: chandlerc@gmail.com						E: chandlerc@gmail.com
+E: chandlerc@google.com						E: chandlerc@google.com
+D: Hashing algorithms and interfaces				D: Hashing algorithms and interfaces
+D: Inline cost analysis						D: Inline cost analysis
+D: Machine block placement pass					D: Machine block placement pass
+D: SROA								D: SROA
+
+N: Casey Carter							N: Casey Carter
+E: ccarter@uiuc.edu						E: ccarter@uiuc.edu
+D: Fixes to the Reassociation pass, various improvement patch	D: Fixes to the Reassociation pass, various improvement patch
+
+N: Evan Cheng							N: Evan Cheng
+E: evan.cheng@apple.com						E: evan.cheng@apple.com
+D: ARM and X86 backends						D: ARM and X86 backends
+D: Instruction scheduler improvements				D: Instruction scheduler improvements
+D: Register allocator improvements				D: Register allocator improvements
+D: Loop optimizer improvements					D: Loop optimizer improvements
+D: Target-independent code generator improvements		D: Target-independent code generator improvements
+
+N: Dan Villiom Podlaski Christiansen				N: Dan Villiom Podlaski Christiansen
+E: danchr@gmail.com						E: danchr@gmail.com
+E: danchr@cs.au.dk						E: danchr@cs.au.dk
+W: http://villiom.dk						W: http://villiom.dk
+D: LLVM Makefile improvements					D: LLVM Makefile improvements
+D: Clang diagnostic & driver tweaks				D: Clang diagnostic & driver tweaks
+S: Aarhus, Denmark						S: Aarhus, Denmark
+
+N: Jeff Cohen							N: Jeff Cohen
+E: jeffc@jolt-lang.org						E: jeffc@jolt-lang.org
+W: http://jolt-lang.org						W: http://jolt-lang.org
+D: Native Win32 API portability layer				D: Native Win32 API portability layer
+
+N: John T. Criswell						N: John T. Criswell
+E: criswell@uiuc.edu						E: criswell@uiuc.edu
+D: Original Autoconf support, documentation improvements, bug	D: Original Autoconf support, documentation improvements, bug
+
+N: Anshuman Dasgupta						N: Anshuman Dasgupta
+E: adasgupt@codeaurora.org					E: adasgupt@codeaurora.org
+D: Deterministic finite automaton based infrastructure for VL	D: Deterministic finite automaton based infrastructure for VL
+
+N: Stefanus Du Toit						N: Stefanus Du Toit
+E: stefanus.du.toit@intel.com					E: stefanus.du.toit@intel.com
+D: Bug fixes and minor improvements				D: Bug fixes and minor improvements
+
+N: Rafael Avila de Espindola					N: Rafael Avila de Espindola
+E: rafael@espindo.la						E: rafael@espindo.la
+D: MC and LLD work						D: MC and LLD work
+
+N: Dave Estes							N: Dave Estes
+E: cestes@codeaurora.org					E: cestes@codeaurora.org
+D: AArch64 machine description for Cortex-A53			D: AArch64 machine description for Cortex-A53
+
+N: Alkis Evlogimenos						N: Alkis Evlogimenos
+E: alkis@evlogimenos.com					E: alkis@evlogimenos.com
+D: Linear scan register allocator, many codegen improvements,	D: Linear scan register allocator, many codegen improvements,
+
+N: Hal Finkel							N: Hal Finkel
+E: hfinkel@anl.gov						E: hfinkel@anl.gov
+D: Basic-block autovectorization, PowerPC backend improvement	D: Basic-block autovectorization, PowerPC backend improvement
+
+N: Eric Fiselier						N: Eric Fiselier
+E: eric@efcs.ca							E: eric@efcs.ca
+D: LIT patches and documentation			      |	D: LIT patches and documentation.
+
+N: Ryan Flynn							N: Ryan Flynn
+E: pizza@parseerror.com						E: pizza@parseerror.com
+D: Miscellaneous bug fixes					D: Miscellaneous bug fixes
+
+N: Brian Gaeke							N: Brian Gaeke
+E: gaeke@uiuc.edu						E: gaeke@uiuc.edu
+W: http://www.students.uiuc.edu/~gaeke/				W: http://www.students.uiuc.edu/~gaeke/
+D: Portions of X86 static and JIT compilers; initial SparcV8 	D: Portions of X86 static and JIT compilers; initial SparcV8 
+D: Dynamic trace optimizer					D: Dynamic trace optimizer
+D: FreeBSD/X86 compatibility fixes, the llvm-nm tool		D: FreeBSD/X86 compatibility fixes, the llvm-nm tool
+
+N: Nicolas Geoffray						N: Nicolas Geoffray
+E: nicolas.geoffray@lip6.fr					E: nicolas.geoffray@lip6.fr
+W: http://www-src.lip6.fr/homepages/Nicolas.Geoffray/		W: http://www-src.lip6.fr/homepages/Nicolas.Geoffray/
+D: PPC backend fixes for Linux					D: PPC backend fixes for Linux
+
+N: Louis Gerbarg						N: Louis Gerbarg
+E: lgg@apple.com						E: lgg@apple.com
+D: Portions of the PowerPC backend				D: Portions of the PowerPC backend
+
+N: Saem Ghani							N: Saem Ghani
+E: saemghani@gmail.com						E: saemghani@gmail.com
+D: Callgraph class cleanups					D: Callgraph class cleanups
+
+N: Mikhail Glushenkov						N: Mikhail Glushenkov
+E: foldr@codedgers.com						E: foldr@codedgers.com
+D: Author of llvmc2						D: Author of llvmc2
+
+N: Dan Gohman							N: Dan Gohman
+E: sunfish@mozilla.com						E: sunfish@mozilla.com
+D: Miscellaneous bug fixes					D: Miscellaneous bug fixes
+D: WebAssembly Backend						D: WebAssembly Backend
+
+N: Renato Golin						      <
+E: rengolin@systemcall.eu				      <
+E: renato.golin@linaro.org				      <
+E: rengolin@gmail.com					      <
+D: ARM/AArch64 back-end improvements			      <
+D: Loop Vectorizer improvements				      <
+D: Regression and Test Suite improvements		      <
+D: Linux compatibility (GNU, musl, etc)			      <
+D: Initial Linux kernel / Android support effort	      <
+I: rengolin						      <
+							      <
+N: David Goodwin						N: David Goodwin
+E: david@goodwinz.net						E: david@goodwinz.net
+D: Thumb-2 code generator					D: Thumb-2 code generator
+
+N: David Greene							N: David Greene
+E: greened@obbligato.org					E: greened@obbligato.org
+D: Miscellaneous bug fixes					D: Miscellaneous bug fixes
+D: Register allocation refactoring				D: Register allocation refactoring
+
+N: Gabor Greif							N: Gabor Greif
+E: ggreif@gmail.com						E: ggreif@gmail.com
+D: Improvements for space efficiency				D: Improvements for space efficiency
+
+N: James Grosbach						N: James Grosbach
+E: grosbach@apple.com						E: grosbach@apple.com
+I: grosbach							I: grosbach
+D: SjLj exception handling support				D: SjLj exception handling support
+D: General fixes and improvements for the ARM back-end		D: General fixes and improvements for the ARM back-end
+D: MCJIT							D: MCJIT
+D: ARM integrated assembler and assembly parser			D: ARM integrated assembler and assembly parser
+D: Led effort for the backend formerly known as ARM64		D: Led effort for the backend formerly known as ARM64
+
+N: Lang Hames							N: Lang Hames
+E: lhames@gmail.com						E: lhames@gmail.com
+D: PBQP-based register allocator				D: PBQP-based register allocator
+
+N: Gordon Henriksen						N: Gordon Henriksen
+E: gordonhenriksen@mac.com					E: gordonhenriksen@mac.com
+D: Pluggable GC support						D: Pluggable GC support
+D: C interface							D: C interface
+D: Ocaml bindings						D: Ocaml bindings
+
+N: Raul Fernandes Herbster					N: Raul Fernandes Herbster
+E: raul@dsc.ufcg.edu.br						E: raul@dsc.ufcg.edu.br
+D: JIT support for ARM						D: JIT support for ARM
+
+N: Paolo Invernizzi						N: Paolo Invernizzi
+E: arathorn@fastwebnet.it					E: arathorn@fastwebnet.it
+D: Visual C++ compatibility fixes				D: Visual C++ compatibility fixes
+
+N: Patrick Jenkins						N: Patrick Jenkins
+E: patjenk@wam.umd.edu						E: patjenk@wam.umd.edu
+D: Nightly Tester						D: Nightly Tester
+
+N: Tony(Yanjun) Jiang						N: Tony(Yanjun) Jiang
+E: jtony@ca.ibm.com						E: jtony@ca.ibm.com
+D: PowerPC Backend Developer					D: PowerPC Backend Developer
+D: Improvements to the PPC backend and miscellaneous bug fixe	D: Improvements to the PPC backend and miscellaneous bug fixe
+
+N: Dale Johannesen						N: Dale Johannesen
+E: dalej@apple.com						E: dalej@apple.com
+D: ARM constant islands improvements				D: ARM constant islands improvements
+D: Tail merging improvements					D: Tail merging improvements
+D: Rewrite X87 back end						D: Rewrite X87 back end
+D: Use APFloat for floating point constants widely throughout	D: Use APFloat for floating point constants widely throughout
+D: Implement X87 long double					D: Implement X87 long double
+
+N: Brad Jones							N: Brad Jones
+E: kungfoomaster@nondot.org					E: kungfoomaster@nondot.org
+D: Support for packed types					D: Support for packed types
+
+N: Rod Kay							N: Rod Kay
+E: rkay@auroraux.org						E: rkay@auroraux.org
+D: Author of LLVM Ada bindings					D: Author of LLVM Ada bindings
+
+N: Erich Keane							N: Erich Keane
+E: erich.keane@intel.com					E: erich.keane@intel.com
+D: A variety of Clang contributions including function multiv	D: A variety of Clang contributions including function multiv
+I: ErichKeane							I: ErichKeane
+
+N: Eric Kidd							N: Eric Kidd
+W: http://randomhacks.net/					W: http://randomhacks.net/
+D: llvm-config script						D: llvm-config script
+
+N: Anton Korobeynikov						N: Anton Korobeynikov
+E: anton at korobeynikov dot info				E: anton at korobeynikov dot info
+D: Mingw32 fixes, cross-compiling support, stdcall/fastcall c	D: Mingw32 fixes, cross-compiling support, stdcall/fastcall c
+D: x86/linux PIC codegen, aliases, regparm/visibility attribu	D: x86/linux PIC codegen, aliases, regparm/visibility attribu
+D: Switch lowering refactoring					D: Switch lowering refactoring
+
+N: Sumant Kowshik						N: Sumant Kowshik
+E: kowshik@uiuc.edu						E: kowshik@uiuc.edu
+D: Author of the original C backend				D: Author of the original C backend
+
+N: Benjamin Kramer						N: Benjamin Kramer
+E: benny.kra@gmail.com						E: benny.kra@gmail.com
+D: Miscellaneous bug fixes					D: Miscellaneous bug fixes
+
+N: Sundeep Kushwaha						N: Sundeep Kushwaha
+E: sundeepk@codeaurora.org					E: sundeepk@codeaurora.org
+D: Implemented DFA-based target independent VLIW packetizer	D: Implemented DFA-based target independent VLIW packetizer
+
+N: Christopher Lamb						N: Christopher Lamb
+E: christopher.lamb@gmail.com					E: christopher.lamb@gmail.com
+D: aligned load/store support, parts of noalias and restrict 	D: aligned load/store support, parts of noalias and restrict 
+D: vreg subreg infrastructure, X86 codegen improvements based	D: vreg subreg infrastructure, X86 codegen improvements based
+D: address spaces						D: address spaces
+
+N: Jim Laskey							N: Jim Laskey
+E: jlaskey@apple.com						E: jlaskey@apple.com
+D: Improvements to the PPC backend, instruction scheduling	D: Improvements to the PPC backend, instruction scheduling
+D: Debug and Dwarf implementation				D: Debug and Dwarf implementation
+D: Auto upgrade mangler						D: Auto upgrade mangler
+D: llvm-gcc4 svn wrangler					D: llvm-gcc4 svn wrangler
+
+N: Chris Lattner						N: Chris Lattner
+E: sabre@nondot.org						E: sabre@nondot.org
+W: http://nondot.org/~sabre/					W: http://nondot.org/~sabre/
+D: Primary architect of LLVM					D: Primary architect of LLVM
+
+N: Tanya Lattner (Tanya Brethour)				N: Tanya Lattner (Tanya Brethour)
+E: tonic@nondot.org						E: tonic@nondot.org
+W: http://nondot.org/~tonic/					W: http://nondot.org/~tonic/
+D: The initial llvm-ar tool, converted regression testsuite t	D: The initial llvm-ar tool, converted regression testsuite t
+D: Modulo scheduling in the SparcV9 backend			D: Modulo scheduling in the SparcV9 backend
+D: Release manager (1.7+)					D: Release manager (1.7+)
+
+N: Sylvestre Ledru						N: Sylvestre Ledru
+E: sylvestre@debian.org						E: sylvestre@debian.org
+W: http://sylvestre.ledru.info/					W: http://sylvestre.ledru.info/
+W: https://apt.llvm.org/					W: https://apt.llvm.org/
+D: Debian and Ubuntu packaging					D: Debian and Ubuntu packaging
+D: Continuous integration with jenkins				D: Continuous integration with jenkins
+
+N: Andrew Lenharth						N: Andrew Lenharth
+E: alenhar2@cs.uiuc.edu						E: alenhar2@cs.uiuc.edu
+W: http://www.lenharth.org/~andrewl/				W: http://www.lenharth.org/~andrewl/
+D: Alpha backend						D: Alpha backend
+D: Sampling based profiling					D: Sampling based profiling
+
+N: Nick Lewycky							N: Nick Lewycky
+E: nicholas@mxc.ca						E: nicholas@mxc.ca
+D: PredicateSimplifier pass					D: PredicateSimplifier pass
+
+N: Tony Linthicum, et. al.					N: Tony Linthicum, et. al.
+E: tlinth@codeaurora.org					E: tlinth@codeaurora.org
+D: Backend for Qualcomm's Hexagon VLIW processor.		D: Backend for Qualcomm's Hexagon VLIW processor.
+
+N: Bruno Cardoso Lopes						N: Bruno Cardoso Lopes
+E: bruno.cardoso@gmail.com					E: bruno.cardoso@gmail.com
+I: bruno							I: bruno
+W: http://brunocardoso.cc					W: http://brunocardoso.cc
+D: Mips backend							D: Mips backend
+D: Random ARM integrated assembler and assembly parser improv	D: Random ARM integrated assembler and assembly parser improv
+D: General X86 AVX1 support					D: General X86 AVX1 support
+
+N: Duraid Madina						N: Duraid Madina
+E: duraid@octopus.com.au					E: duraid@octopus.com.au
+W: http://kinoko.c.u-tokyo.ac.jp/~duraid/			W: http://kinoko.c.u-tokyo.ac.jp/~duraid/
+D: IA64 backend, BigBlock register allocator			D: IA64 backend, BigBlock register allocator
+
+N: John McCall							N: John McCall
+E: rjmccall@apple.com						E: rjmccall@apple.com
+D: Clang semantic analysis and IR generation			D: Clang semantic analysis and IR generation
+
+N: Michael McCracken						N: Michael McCracken
+E: michael.mccracken@gmail.com					E: michael.mccracken@gmail.com
+D: Line number support for llvmgcc				D: Line number support for llvmgcc
+
+N: Vladimir Merzliakov						N: Vladimir Merzliakov
+E: wanderer@rsu.ru						E: wanderer@rsu.ru
+D: Test suite fixes for FreeBSD					D: Test suite fixes for FreeBSD
+
+N: Scott Michel							N: Scott Michel
+E: scottm@aero.org						E: scottm@aero.org
+D: Added STI Cell SPU backend.					D: Added STI Cell SPU backend.
+
+N: Kai Nacke							N: Kai Nacke
+E: kai@redstar.de						E: kai@redstar.de
+D: Support for implicit TLS model used with MS VC runtime	D: Support for implicit TLS model used with MS VC runtime
+D: Dumping of Win64 EH structures				D: Dumping of Win64 EH structures
+
+N: Takumi Nakamura						N: Takumi Nakamura
+I: chapuni							I: chapuni
+E: geek4civic@gmail.com						E: geek4civic@gmail.com
+E: chapuni@hf.rim.or.jp						E: chapuni@hf.rim.or.jp
+D: Maintaining the Git monorepo					D: Maintaining the Git monorepo
+W: https://github.com/llvm-project/				W: https://github.com/llvm-project/
+S: Ebina, Japan							S: Ebina, Japan
+
+N: Edward O'Callaghan						N: Edward O'Callaghan
+E: eocallaghan@auroraux.org					E: eocallaghan@auroraux.org
+W: http://www.auroraux.org					W: http://www.auroraux.org
+D: Add Clang support with various other improvements to utils	D: Add Clang support with various other improvements to utils
+D: Fix and maintain Solaris & AuroraUX support for llvm, vari	D: Fix and maintain Solaris & AuroraUX support for llvm, vari
+D: and error clean ups.						D: and error clean ups.
+
+N: Morten Ofstad						N: Morten Ofstad
+E: morten@hue.no						E: morten@hue.no
+D: Visual C++ compatibility fixes				D: Visual C++ compatibility fixes
+
+N: Jakob Stoklund Olesen					N: Jakob Stoklund Olesen
+E: stoklund@2pi.dk						E: stoklund@2pi.dk
+D: Machine code verifier					D: Machine code verifier
+D: Blackfin backend						D: Blackfin backend
+D: Fast register allocator					D: Fast register allocator
+D: Greedy register allocator					D: Greedy register allocator
+
+N: Richard Osborne						N: Richard Osborne
+E: richard@xmos.com						E: richard@xmos.com
+D: XCore backend						D: XCore backend
+
+N: Piotr Padlewski						N: Piotr Padlewski
+E: piotr.padlewski@gmail.com					E: piotr.padlewski@gmail.com
+D: !invariant.group metadata and other intrinsics for devirtu	D: !invariant.group metadata and other intrinsics for devirtu
+
+N: Devang Patel							N: Devang Patel
+E: dpatel@apple.com						E: dpatel@apple.com
+D: LTO tool, PassManager rewrite, Loop Pass Manager, Loop Rot	D: LTO tool, PassManager rewrite, Loop Pass Manager, Loop Rot
+D: GCC PCH Integration (llvm-gcc), llvm-gcc improvements	D: GCC PCH Integration (llvm-gcc), llvm-gcc improvements
+D: Optimizer improvements, Loop Index Split			D: Optimizer improvements, Loop Index Split
+
+N: Ana Pazos							N: Ana Pazos
+E: apazos@codeaurora.org					E: apazos@codeaurora.org
+D: Fixes and improvements to the AArch64 backend		D: Fixes and improvements to the AArch64 backend
+
+N: Wesley Peck							N: Wesley Peck
+E: peckw@wesleypeck.com						E: peckw@wesleypeck.com
+W: http://wesleypeck.com/					W: http://wesleypeck.com/
+D: MicroBlaze backend						D: MicroBlaze backend
+
+N: Francois Pichet						N: Francois Pichet
+E: pichet2000@gmail.com						E: pichet2000@gmail.com
+D: MSVC support							D: MSVC support
+
+N: Adrian Prantl						N: Adrian Prantl
+E: aprantl@apple.com						E: aprantl@apple.com
+D: Debug Information						D: Debug Information
+
+N: Vladimir Prus						N: Vladimir Prus
+W: http://vladimir_prus.blogspot.com				W: http://vladimir_prus.blogspot.com
+E: ghost@cs.msu.su						E: ghost@cs.msu.su
+D: Made inst_iterator behave like a proper iterator, LowerCon	D: Made inst_iterator behave like a proper iterator, LowerCon
+
+N: QIU Chaofan						      <
+E: qiucofan@cn.ibm.com					      <
+D: PowerPC Backend Developer				      <
+							      <
+N: Kalle Raiskila						N: Kalle Raiskila
+E: kalle.rasikila@nokia.com					E: kalle.rasikila@nokia.com
+D: Some bugfixes to CellSPU					D: Some bugfixes to CellSPU
+
+N: Xerxes Ranby							N: Xerxes Ranby
+E: xerxes@zafena.se						E: xerxes@zafena.se
+D: Cmake dependency chain and various bug fixes			D: Cmake dependency chain and various bug fixes
+
+N: Alex Rosenberg						N: Alex Rosenberg
+E: alexr@leftfield.org						E: alexr@leftfield.org
+I: arosenberg							I: arosenberg
+D: ARM calling conventions rewrite, hard float support		D: ARM calling conventions rewrite, hard float support
+
+N: Chad Rosier							N: Chad Rosier
+E: mcrosier@codeaurora.org					E: mcrosier@codeaurora.org
+I: mcrosier							I: mcrosier
+D: AArch64 fast instruction selection pass			D: AArch64 fast instruction selection pass
+D: Fixes and improvements to the ARM fast-isel pass		D: Fixes and improvements to the ARM fast-isel pass
+D: Fixes and improvements to the AArch64 backend		D: Fixes and improvements to the AArch64 backend
+
+N: Nadav Rotem							N: Nadav Rotem
+E: nadav.rotem@me.com						E: nadav.rotem@me.com
+D: X86 code generation improvements, Loop Vectorizer, SLP Vec	D: X86 code generation improvements, Loop Vectorizer, SLP Vec
+
+N: Roman Samoilov						N: Roman Samoilov
+E: roman@codedgers.com						E: roman@codedgers.com
+D: MSIL backend							D: MSIL backend
+
+N: Duncan Sands							N: Duncan Sands
+E: baldrick@free.fr						E: baldrick@free.fr
+I: baldrick							I: baldrick
+D: Ada support in llvm-gcc					D: Ada support in llvm-gcc
+D: Dragonegg plugin						D: Dragonegg plugin
+D: Exception handling improvements				D: Exception handling improvements
+D: Type legalizer rewrite					D: Type legalizer rewrite
+
+N: Ruchira Sasanka						N: Ruchira Sasanka
+E: sasanka@uiuc.edu						E: sasanka@uiuc.edu
+D: Graph coloring register allocator for the Sparc64 backend	D: Graph coloring register allocator for the Sparc64 backend
+
+N: Arnold Schwaighofer						N: Arnold Schwaighofer
+E: arnold.schwaighofer@gmail.com				E: arnold.schwaighofer@gmail.com
+D: Tail call optimization for the x86 backend			D: Tail call optimization for the x86 backend
+
+N: Shantonu Sen							N: Shantonu Sen
+E: ssen@apple.com						E: ssen@apple.com
+D: Miscellaneous bug fixes					D: Miscellaneous bug fixes
+
+N: Anand Shukla							N: Anand Shukla
+E: ashukla@cs.uiuc.edu						E: ashukla@cs.uiuc.edu
+D: The `paths' pass						D: The `paths' pass
+
+N: Michael J. Spencer						N: Michael J. Spencer
+E: bigcheesegs@gmail.com					E: bigcheesegs@gmail.com
+D: Shepherding Windows COFF support into MC.			D: Shepherding Windows COFF support into MC.
+D: Lots of Windows stuff.					D: Lots of Windows stuff.
+
+N: Reid Spencer							N: Reid Spencer
+E: rspencer@reidspencer.com					E: rspencer@reidspencer.com
+W: http://reidspencer.com/					W: http://reidspencer.com/
+D: Lots of stuff, see: http://wiki.llvm.org/index.php/User:Re	D: Lots of stuff, see: http://wiki.llvm.org/index.php/User:Re
+
+N: Alp Toker							N: Alp Toker
+E: alp@nuanti.com						E: alp@nuanti.com
+W: http://atoker.com/						W: http://atoker.com/
+D: C++ frontend next generation standards implementation	D: C++ frontend next generation standards implementation
+
+N: Craig Topper							N: Craig Topper
+E: craig.topper@gmail.com					E: craig.topper@gmail.com
+D: X86 codegen and disassembler improvements. AVX2 support.	D: X86 codegen and disassembler improvements. AVX2 support.
+
+N: Edwin Torok							N: Edwin Torok
+E: edwintorok@gmail.com						E: edwintorok@gmail.com
+D: Miscellaneous bug fixes					D: Miscellaneous bug fixes
+
+N: Adam Treat							N: Adam Treat
+E: manyoso@yahoo.com						E: manyoso@yahoo.com
+D: C++ bugs filed, and C++ front-end bug fixes.			D: C++ bugs filed, and C++ front-end bug fixes.
+
+N: Andrew Trick							N: Andrew Trick
+E: atrick@apple.com						E: atrick@apple.com
+D: Instruction Scheduling, ...					D: Instruction Scheduling, ...
+
+N: Lauro Ramos Venancio						N: Lauro Ramos Venancio
+E: lauro.venancio@indt.org.br					E: lauro.venancio@indt.org.br
+D: ARM backend improvements					D: ARM backend improvements
+D: Thread Local Storage implementation				D: Thread Local Storage implementation
+
+N: Bill Wendling						N: Bill Wendling
+I: wendling							I: wendling
+E: isanbard@gmail.com						E: isanbard@gmail.com
+D: Release manager, IR Linker, LTO.				D: Release manager, IR Linker, LTO.
+D: Bunches of stuff.						D: Bunches of stuff.
+
+N: Bob Wilson							N: Bob Wilson
+E: bob.wilson@acm.org						E: bob.wilson@acm.org
+D: Advanced SIMD (NEON) support in the ARM backend.		D: Advanced SIMD (NEON) support in the ARM backend.
+
+N: QingShan Zhang						N: QingShan Zhang
+E: qshanz@cn.ibm.com						E: qshanz@cn.ibm.com
+D: PowerPC Backend Developer					D: PowerPC Backend Developer
+
+N: Li Jia He							N: Li Jia He
+E: hljhehlj@cn.ibm.com						E: hljhehlj@cn.ibm.com
+D: PowerPC Backend Developer					D: PowerPC Backend Developer
+							      <
+N: Zixuan Wu						      <
+E: wuzish@cn.ibm.com					      <
+D: PowerPC Backend Developer				      <
+							      <
+N: Kang Zhang						      <
+E: shkzhang@cn.ibm.com					      <
+D: PowerPC Backend Developer				      <
+							      <
+N: Zheng Chen						      <
+E: czhengsz@cn.ibm.com					      <
+D: PowerPC Backend Developer				      <
+							      <
+N: Djordje Todorovic					      <
+E: djordje.todorovic@rt-rk.com				      <
+D: Debug Information					      <
+Common subdirectories: llvm/docs and rvv-llvm-rvv-2018-11-01/docs
+Common subdirectories: llvm/examples and rvv-llvm-rvv-2018-11-01/examples
+diff -y llvm/.gitattributes rvv-llvm-rvv-2018-11-01/.gitattributes
+# binary files							# binary files
+test/Object/Inputs/*.a-* binary					test/Object/Inputs/*.a-* binary
+test/tools/dsymutil/Inputs/*.o binary				test/tools/dsymutil/Inputs/*.o binary
+test/tools/dsymutil/Inputs/*.a binary				test/tools/dsymutil/Inputs/*.a binary
+test/tools/dsymutil/Inputs/*.i386 binary			test/tools/dsymutil/Inputs/*.i386 binary
+test/tools/dsymutil/Inputs/*.x86_64 binary			test/tools/dsymutil/Inputs/*.x86_64 binary
+test/tools/dsymutil/Inputs/*.armv7m binary			test/tools/dsymutil/Inputs/*.armv7m binary
+test/tools/dsymutil/Inputs/*.dylib binary			test/tools/dsymutil/Inputs/*.dylib binary
+test/tools/llvm-ar/Inputs/*.lib binary				test/tools/llvm-ar/Inputs/*.lib binary
+test/tools/llvm-objdump/Inputs/*.a binary			test/tools/llvm-objdump/Inputs/*.a binary
+test/tools/llvm-rc/Inputs/* binary				test/tools/llvm-rc/Inputs/* binary
+test/tools/llvm-strings/Inputs/numbers binary			test/tools/llvm-strings/Inputs/numbers binary
+test/MC/AsmParser/incbin_abcd binary				test/MC/AsmParser/incbin_abcd binary
+test/YAMLParser/spec-09-02.test binary				test/YAMLParser/spec-09-02.test binary
+
+# This file must have CRLF line endings, therefore git should |	# Windows line ending test
+# binary and not autoconvert line endings (for example, when  |	test/MC/AsmParser/preserve-comments-crlf.s text eol=crlf
+# on).							      <
+test/MC/AsmParser/preserve-comments-crlf.s binary	      <
+diff -y llvm/.gitignore rvv-llvm-rvv-2018-11-01/.gitignore
+#============================================================	#============================================================
+# This file specifies intentionally untracked files that git 	# This file specifies intentionally untracked files that git 
+# See: http://www.kernel.org/pub/software/scm/git/docs/gitign	# See: http://www.kernel.org/pub/software/scm/git/docs/gitign
+#								#
+# This file is intentionally different from the output of `gi	# This file is intentionally different from the output of `gi
+# as most of those are useless.					# as most of those are useless.
+#============================================================	#============================================================
+
+#============================================================	#============================================================
+# File extensions to be ignored anywhere in the tree.		# File extensions to be ignored anywhere in the tree.
+#============================================================	#============================================================
+# Temp files created by most text editors.			# Temp files created by most text editors.
+*~								*~
+# Merge files created by git.					# Merge files created by git.
+*.orig								*.orig
+# Byte compiled python modules.					# Byte compiled python modules.
+*.pyc								*.pyc
+# vim swap files						# vim swap files
+.*.sw?								.*.sw?
+.sw?								.sw?
+#OS X specific files.						#OS X specific files.
+.DS_store							.DS_store
+
+# Nested build directory					# Nested build directory
+/build								/build
+
+#============================================================	#============================================================
+# Explicit files to ignore (only matches one).			# Explicit files to ignore (only matches one).
+#============================================================	#============================================================
+# Various tag programs						# Various tag programs
+/tags								/tags
+/TAGS								/TAGS
+/GPATH								/GPATH
+/GRTAGS								/GRTAGS
+/GSYMS								/GSYMS
+/GTAGS								/GTAGS
+.gitusers							.gitusers
+autom4te.cache							autom4te.cache
+cscope.files							cscope.files
+cscope.out							cscope.out
+autoconf/aclocal.m4						autoconf/aclocal.m4
+autoconf/autom4te.cache						autoconf/autom4te.cache
+/compile_commands.json						/compile_commands.json
+# Visual Studio built-in CMake configuration			# Visual Studio built-in CMake configuration
+/CMakeSettings.json						/CMakeSettings.json
+# CLion project configuration				      <
+/.idea							      <
+# Qt Creator project configuration			      <
+/CMakeLists.txt.user					      <
+
+#============================================================	#============================================================
+# Directories to ignore (do not add trailing '/'s, they skip 	# Directories to ignore (do not add trailing '/'s, they skip 
+#============================================================	#============================================================
+# External projects that are tracked independently.		# External projects that are tracked independently.
+projects/*							projects/*
+!projects/*.*							!projects/*.*
+!projects/Makefile						!projects/Makefile
+runtimes/*							runtimes/*
+!runtimes/*.*							!runtimes/*.*
+# Clang, which is tracked independently.			# Clang, which is tracked independently.
+tools/clang							tools/clang
+# LLDB, which is tracked independently.				# LLDB, which is tracked independently.
+tools/lldb							tools/lldb
+# lld, which is tracked independently.				# lld, which is tracked independently.
+tools/lld							tools/lld
+# llgo, which is tracked independently.				# llgo, which is tracked independently.
+tools/llgo							tools/llgo
+# Polly, which is tracked independently.			# Polly, which is tracked independently.
+tools/polly							tools/polly
+# avrlit, which is tracked independently.			# avrlit, which is tracked independently.
+tools/avrlit							tools/avrlit
+# Sphinx build tree, if building in-source dir.			# Sphinx build tree, if building in-source dir.
+docs/_build							docs/_build
+# VS2017 and VSCode config files.				# VS2017 and VSCode config files.
+.vscode								.vscode
+.vs								.vs
+# clangd index						      <
+.clangd							      <
+
+#============================================================	#============================================================
+# Files created in tree by the Go bindings.			# Files created in tree by the Go bindings.
+#============================================================	#============================================================
+bindings/go/llvm/llvm_config.go					bindings/go/llvm/llvm_config.go
+bindings/go/llvm/workdir					bindings/go/llvm/workdir
+Common subdirectories: llvm/include and rvv-llvm-rvv-2018-11-01/include
+Common subdirectories: llvm/lib and rvv-llvm-rvv-2018-11-01/lib
+diff -y llvm/LICENSE.TXT rvv-llvm-rvv-2018-11-01/LICENSE.TXT
+=============================================================	=============================================================
+The LLVM Project is under the Apache License v2.0 with LLVM E |	LLVM Release License
+============================================================= <
+							      <
+                                 Apache License		      <
+                           Version 2.0, January 2004	      <
+                        http://www.apache.org/licenses/	      <
+							      <
+    TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUT <
+							      <
+    1. Definitions.					      <
+							      <
+      "License" shall mean the terms and conditions for use,  <
+      and distribution as defined by Sections 1 through 9 of  <
+							      <
+      "Licensor" shall mean the copyright owner or entity aut <
+      the copyright owner that is granting the License.	      <
+							      <
+      "Legal Entity" shall mean the union of the acting entit <
+      other entities that control, are controlled by, or are  <
+      control with that entity. For the purposes of this defi <
+      "control" means (i) the power, direct or indirect, to c <
+      direction or management of such entity, whether by cont <
+      otherwise, or (ii) ownership of fifty percent (50%) or  <
+      outstanding shares, or (iii) beneficial ownership of su <
+							      <
+      "You" (or "Your") shall mean an individual or Legal Ent <
+      exercising permissions granted by this License.	      <
+							      <
+      "Source" form shall mean the preferred form for making  <
+      including but not limited to software source code, docu <
+      source, and configuration files.			      <
+							      <
+      "Object" form shall mean any form resulting from mechan <
+      transformation or translation of a Source form, includi <
+      not limited to compiled object code, generated document <
+      and conversions to other media types.		      <
+							      <
+      "Work" shall mean the work of authorship, whether in So <
+      Object form, made available under the License, as indic <
+      copyright notice that is included in or attached to the <
+      (an example is provided in the Appendix below).	      <
+							      <
+      "Derivative Works" shall mean any work, whether in Sour <
+      form, that is based on (or derived from) the Work and f <
+      editorial revisions, annotations, elaborations, or othe <
+      represent, as a whole, an original work of authorship.  <
+      of this License, Derivative Works shall not include wor <
+      separable from, or merely link (or bind by name) to the <
+      the Work and Derivative Works thereof.		      <
+							      <
+      "Contribution" shall mean any work of authorship, inclu <
+      the original version of the Work and any modifications  <
+      to that Work or Derivative Works thereof, that is inten <
+      submitted to Licensor for inclusion in the Work by the  <
+      or by an individual or Legal Entity authorized to submi <
+      the copyright owner. For the purposes of this definitio <
+      means any form of electronic, verbal, or written commun <
+      to the Licensor or its representatives, including but n <
+      communication on electronic mailing lists, source code  <
+      and issue tracking systems that are managed by, or on b <
+      Licensor for the purpose of discussing and improving th <
+      excluding communication that is conspicuously marked or <
+      designated in writing by the copyright owner as "Not a  <
+							      <
+      "Contributor" shall mean Licensor and any individual or <
+      on behalf of whom a Contribution has been received by L <
+      subsequently incorporated within the Work.	      <
+							      <
+    2. Grant of Copyright License. Subject to the terms and c <
+      this License, each Contributor hereby grants to You a p <
+      worldwide, non-exclusive, no-charge, royalty-free, irre <
+      copyright license to reproduce, prepare Derivative Work <
+      publicly display, publicly perform, sublicense, and dis <
+      Work and such Derivative Works in Source or Object form <
+							      <
+    3. Grant of Patent License. Subject to the terms and cond <
+      this License, each Contributor hereby grants to You a p <
+      worldwide, non-exclusive, no-charge, royalty-free, irre <
+      (except as stated in this section) patent license to ma <
+      use, offer to sell, sell, import, and otherwise transfe <
+      where such license applies only to those patent claims  <
+      by such Contributor that are necessarily infringed by t <
+      Contribution(s) alone or by combination of their Contri <
+      with the Work to which such Contribution(s) was submitt <
+      institute patent litigation against any entity (includi <
+      cross-claim or counterclaim in a lawsuit) alleging that <
+      or a Contribution incorporated within the Work constitu <
+      or contributory patent infringement, then any patent li <
+      granted to You under this License for that Work shall t <
+      as of the date such litigation is filed.		      <
+							      <
+    4. Redistribution. You may reproduce and distribute copie <
+      Work or Derivative Works thereof in any medium, with or <
+      modifications, and in Source or Object form, provided t <
+      meet the following conditions:			      <
+							      <
+      (a) You must give any other recipients of the Work or   <
+          Derivative Works a copy of this License; and	      <
+							      <
+      (b) You must cause any modified files to carry prominen <
+          stating that You changed the files; and	      <
+							      <
+      (c) You must retain, in the Source form of any Derivati <
+          that You distribute, all copyright, patent, tradema <
+          attribution notices from the Source form of the Wor <
+          excluding those notices that do not pertain to any  <
+          the Derivative Works; and			      <
+							      <
+      (d) If the Work includes a "NOTICE" text file as part o <
+          distribution, then any Derivative Works that You di <
+          include a readable copy of the attribution notices  <
+          within such NOTICE file, excluding those notices th <
+          pertain to any part of the Derivative Works, in at  <
+          of the following places: within a NOTICE text file  <
+          as part of the Derivative Works; within the Source  <
+          documentation, if provided along with the Derivativ <
+          within a display generated by the Derivative Works, <
+          wherever such third-party notices normally appear.  <
+          of the NOTICE file are for informational purposes o <
+          do not modify the License. You may add Your own att <
+          notices within Derivative Works that You distribute <
+          or as an addendum to the NOTICE text from the Work, <
+          that such additional attribution notices cannot be  <
+          as modifying the License.			      <
+							      <
+      You may add Your own copyright statement to Your modifi <
+      may provide additional or different license terms and c <
+      for use, reproduction, or distribution of Your modifica <
+      for any such Derivative Works as a whole, provided Your <
+      reproduction, and distribution of the Work otherwise co <
+      the conditions stated in this License.		      <
+							      <
+    5. Submission of Contributions. Unless You explicitly sta <
+      any Contribution intentionally submitted for inclusion  <
+      by You to the Licensor shall be under the terms and con <
+      this License, without any additional terms or condition <
+      Notwithstanding the above, nothing herein shall superse <
+      the terms of any separate license agreement you may hav <
+      with Licensor regarding such Contributions.	      <
+							      <
+    6. Trademarks. This License does not grant permission to  <
+      names, trademarks, service marks, or product names of t <
+      except as required for reasonable and customary use in  <
+      origin of the Work and reproducing the content of the N <
+							      <
+    7. Disclaimer of Warranty. Unless required by applicable  <
+      agreed to in writing, Licensor provides the Work (and e <
+      Contributor provides its Contributions) on an "AS IS" B <
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either ex <
+      implied, including, without limitation, any warranties  <
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS <
+      PARTICULAR PURPOSE. You are solely responsible for dete <
+      appropriateness of using or redistributing the Work and <
+      risks associated with Your exercise of permissions unde <
+							      <
+    8. Limitation of Liability. In no event and under no lega <
+      whether in tort (including negligence), contract, or ot <
+      unless required by applicable law (such as deliberate a <
+      negligent acts) or agreed to in writing, shall any Cont <
+      liable to You for damages, including any direct, indire <
+      incidental, or consequential damages of any character a <
+      result of this License or out of the use or inability t <
+      Work (including but not limited to damages for loss of  <
+      work stoppage, computer failure or malfunction, or any  <
+      other commercial damages or losses), even if such Contr <
+      has been advised of the possibility of such damages.    <
+							      <
+    9. Accepting Warranty or Additional Liability. While redi <
+      the Work or Derivative Works thereof, You may choose to <
+      and charge a fee for, acceptance of support, warranty,  <
+      or other liability obligations and/or rights consistent <
+      License. However, in accepting such obligations, You ma <
+      on Your own behalf and on Your sole responsibility, not <
+      of any other Contributor, and only if You agree to inde <
+      defend, and hold each Contributor harmless for any liab <
+      incurred by, or claims asserted against, such Contribut <
+      of your accepting any such warranty or additional liabi <
+							      <
+    END OF TERMS AND CONDITIONS				      <
+							      <
+    APPENDIX: How to apply the Apache License to your work.   <
+							      <
+      To apply the Apache License to your work, attach the fo <
+      boilerplate notice, with the fields enclosed by bracket <
+      replaced with your own identifying information. (Don't  <
+      the brackets!)  The text should be enclosed in the appr <
+      comment syntax for the file format. We also recommend t <
+      file or class name and description of purpose be includ <
+      same "printed page" as the copyright notice for easier  <
+      identification within third-party archives.	      <
+							      <
+    Copyright [yyyy] [name of copyright owner]		      <
+							      <
+    Licensed under the Apache License, Version 2.0 (the "Lice <
+    you may not use this file except in compliance with the L <
+    You may obtain a copy of the License at		      <
+							      <
+       http://www.apache.org/licenses/LICENSE-2.0	      <
+							      <
+    Unless required by applicable law or agreed to in writing <
+    distributed under the License is distributed on an "AS IS <
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either expr <
+    See the License for the specific language governing permi <
+    limitations under the License.			      <
+							      <
+							      <
+---- LLVM Exceptions to the Apache 2.0 License ----	      <
+							      <
+As an exception, if, as a result of your compiling your sourc <
+of this Software are embedded into an Object form of such sou <
+may redistribute such embedded portions in such Object form w <
+with the conditions of Sections 4(a), 4(b) and 4(d) of the Li <
+							      <
+In addition, if you combine or link compiled forms of this So <
+software that is licensed under the GPLv2 ("Combined Software <
+court of competent jurisdiction determines that the patent pr <
+3), the indemnity provision (Section 9) or other Section of t <
+conflicts with the conditions of the GPLv2, you may retroacti <
+prospectively choose to deem waived or otherwise exclude such <
+the License, but only in their entirety and only with respect <
+Software.						      <
+							      <
+============================================================= <
+Software from third parties included in the LLVM Project:     <
+============================================================= <
+The LLVM Project contains third party software which is under <
+terms. All such code will be identified clearly using at leas <
+mechanisms:						      <
+1) It will be in a separate directory tree with its own `LICE <
+   `LICENSE` file at the top containing the specific license  <
+   which apply to that software, or			      <
+2) It will contain specific license and restriction terms at  <
+   file.						      <
+							      <
+============================================================= <
+Legacy LLVM License (https://llvm.org/docs/DeveloperPolicy.ht <
+=============================================================	=============================================================
+University of Illinois/NCSA					University of Illinois/NCSA
+Open Source License						Open Source License
+
+Copyright (c) 2003-2019 University of Illinois at Urbana-Cham |	Copyright (c) 2003-2018 University of Illinois at Urbana-Cham
+All rights reserved.						All rights reserved.
+
+Developed by:							Developed by:
+
+    LLVM Team							    LLVM Team
+
+    University of Illinois at Urbana-Champaign			    University of Illinois at Urbana-Champaign
+
+    http://llvm.org						    http://llvm.org
+
+Permission is hereby granted, free of charge, to any person o	Permission is hereby granted, free of charge, to any person o
+this software and associated documentation files (the "Softwa	this software and associated documentation files (the "Softwa
+the Software without restriction, including without limitatio	the Software without restriction, including without limitatio
+use, copy, modify, merge, publish, distribute, sublicense, an	use, copy, modify, merge, publish, distribute, sublicense, an
+of the Software, and to permit persons to whom the Software i	of the Software, and to permit persons to whom the Software i
+so, subject to the following conditions:			so, subject to the following conditions:
+
+    * Redistributions of source code must retain the above co	    * Redistributions of source code must retain the above co
+      this list of conditions and the following disclaimers.	      this list of conditions and the following disclaimers.
+
+    * Redistributions in binary form must reproduce the above	    * Redistributions in binary form must reproduce the above
+      this list of conditions and the following disclaimers i	      this list of conditions and the following disclaimers i
+      documentation and/or other materials provided with the 	      documentation and/or other materials provided with the 
+
+    * Neither the names of the LLVM Team, University of Illin	    * Neither the names of the LLVM Team, University of Illin
+      Urbana-Champaign, nor the names of its contributors may	      Urbana-Champaign, nor the names of its contributors may
+      endorse or promote products derived from this Software 	      endorse or promote products derived from this Software 
+      prior written permission.					      prior written permission.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIN	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIN
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCH	IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCH
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SH	FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SH
+CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DA	CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DA
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWIS	LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWIS
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+SOFTWARE.							SOFTWARE.
+
+							      >	=============================================================
+							      >	Copyrights and Licenses for Third Party Software Distributed 
+							      >	=============================================================
+							      >	The LLVM software contains code written by third parties.  Su
+							      >	have its own individual LICENSE.TXT file in the directory in 
+							      >	This file will describe the copyrights, license, and restrict
+							      >	to that code.
+							      >
+							      >	The disclaimer of warranty in the University of Illinois Open
+							      >	applies to all code in the LLVM Distribution, and nothing in 
+							      >	other licenses gives permission to use the names of the LLVM 
+							      >	University of Illinois to endorse or promote products derived
+							      >	Software.
+							      >
+							      >	The following pieces of software have additional or alternate
+							      >	licenses, and/or restrictions:
+							      >
+							      >	Program             Directory
+							      >	-------             ---------
+							      >	Google Test         llvm/utils/unittest/googletest
+							      >	OpenBSD regex       llvm/lib/Support/{reg*, COPYRIGHT.regex}
+							      >	pyyaml tests        llvm/test/YAMLParser/{*.data, LICENSE.TXT
+							      >	ARM contributions   llvm/lib/Target/ARM/LICENSE.TXT
+							      >	md5 contributions   llvm/lib/Support/MD5.cpp llvm/include/llv
+diff -y llvm/LLVMBuild.txt rvv-llvm-rvv-2018-11-01/LLVMBuild.txt
+;===- ./LLVMBuild.txt ---------------------------------------	;===- ./LLVMBuild.txt ---------------------------------------
+;								;
+; Part of the LLVM Project, under the Apache License v2.0 wit |	;                     The LLVM Compiler Infrastructure
+; See https://llvm.org/LICENSE.txt for license information.   |	;
+; SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception     |	; This file is distributed under the University of Illinois O
+							      >	; License. See LICENSE.TXT for details.
+;								;
+;===---------------------------------------------------------	;===---------------------------------------------------------
+;								;
+; This is an LLVMBuild description file for the components in	; This is an LLVMBuild description file for the components in
+;								;
+; For more information on the LLVMBuild system, please see:	; For more information on the LLVMBuild system, please see:
+;								;
+;   http://llvm.org/docs/LLVMBuild.html				;   http://llvm.org/docs/LLVMBuild.html
+;								;
+;===---------------------------------------------------------	;===---------------------------------------------------------
+
+[common]							[common]
+subdirectories = bindings docs examples lib projects tools ut	subdirectories = bindings docs examples lib projects tools ut
+
+[component_0]							[component_0]
+type = Group							type = Group
+name = Miscellaneous						name = Miscellaneous
+parent = $ROOT							parent = $ROOT
+diff -y llvm/llvm.spec.in rvv-llvm-rvv-2018-11-01/llvm.spec.in
+Name: @PACKAGE_NAME@						Name: @PACKAGE_NAME@
+Version: @PACKAGE_VERSION@					Version: @PACKAGE_VERSION@
+Release: 0							Release: 0
+Summary: LLVM (An Optimizing Compiler Infrastructure)		Summary: LLVM (An Optimizing Compiler Infrastructure)
+License: Apache-2.0 with LLVM exception			      |	License: University of Illinois/NCSA Open Source License
+Vendor: None (open source)					Vendor: None (open source)
+Group: Development/Compilers					Group: Development/Compilers
+URL: http://llvm..org/						URL: http://llvm..org/
+Source: http://llvm.org/releases/@PACKAGE_VERSION@/@PACKAGE_N	Source: http://llvm.org/releases/@PACKAGE_VERSION@/@PACKAGE_N
+BuildRoot: %{_tmppath}/%{name}-root				BuildRoot: %{_tmppath}/%{name}-root
+Requires: /sbin/ldconfig					Requires: /sbin/ldconfig
+BuildRequires: gcc >= 3.4					BuildRequires: gcc >= 3.4
+
+%description							%description
+LLVM is a compiler infrastructure designed for compile-time, 	LLVM is a compiler infrastructure designed for compile-time, 
+and idle-time optimization of programs from arbitrary program	and idle-time optimization of programs from arbitrary program
+LLVM is written in C++ and has been developed since 2000 at t	LLVM is written in C++ and has been developed since 2000 at t
+Illinois and Apple. It currently supports compilation of C an	Illinois and Apple. It currently supports compilation of C an
+using front-ends derived from GCC 4.0.1. A new front-end for 	using front-ends derived from GCC 4.0.1. A new front-end for 
+languages is in development. The compiler infrastructure	languages is in development. The compiler infrastructure
+includes mirror sets of programming tools as well as librarie	includes mirror sets of programming tools as well as librarie
+functionality.							functionality.
+
+%prep								%prep
+%setup -q -n @PACKAGE_NAME@-@PACKAGE_VERSION@			%setup -q -n @PACKAGE_NAME@-@PACKAGE_VERSION@
+
+%build								%build
+./configure \							./configure \
+--prefix=%{_prefix} \						--prefix=%{_prefix} \
+--bindir=%{_bindir} \						--bindir=%{_bindir} \
+--datadir=%{_datadir} \						--datadir=%{_datadir} \
+--includedir=%{_includedir} \					--includedir=%{_includedir} \
+--libdir=%{_libdir} \						--libdir=%{_libdir} \
+--enable-optimized \						--enable-optimized \
+--enable-assertions 						--enable-assertions 
+make tools-only							make tools-only
+
+%install							%install
+rm -rf %{buildroot}						rm -rf %{buildroot}
+make install DESTDIR=%{buildroot}				make install DESTDIR=%{buildroot}
+
+%clean								%clean
+rm -rf %{buildroot}						rm -rf %{buildroot}
+
+%post -p /sbin/ldconfig						%post -p /sbin/ldconfig
+
+%postun -p /sbin/ldconfig					%postun -p /sbin/ldconfig
+
+%files								%files
+%defattr(-, root, root)						%defattr(-, root, root)
+%doc CREDITS.TXT LICENSE.TXT README.txt docs/*.{html,css,gif,	%doc CREDITS.TXT LICENSE.TXT README.txt docs/*.{html,css,gif,
+%{_bindir}/*							%{_bindir}/*
+%{_libdir}/*.o							%{_libdir}/*.o
+%{_libdir}/*.a							%{_libdir}/*.a
+%{_libdir}/*.so							%{_libdir}/*.so
+%{_includedir}/llvm						%{_includedir}/llvm
+
+%changelog							%changelog
+* Fri Aug 04 2006 Reid Spencer					* Fri Aug 04 2006 Reid Spencer
+- Updates for release 1.8					- Updates for release 1.8
+* Fri Apr 07 2006 Reid Spencer					* Fri Apr 07 2006 Reid Spencer
+- Make the build be optimized+assertions			- Make the build be optimized+assertions
+* Fri May 13 2005 Reid Spencer					* Fri May 13 2005 Reid Spencer
+- Minor adjustments for the 1.5 release				- Minor adjustments for the 1.5 release
+* Mon Feb 09 2003 Brian R. Gaeke				* Mon Feb 09 2003 Brian R. Gaeke
+- Initial working version of RPM spec file.			- Initial working version of RPM spec file.
+
+
+Common subdirectories: llvm/projects and rvv-llvm-rvv-2018-11-01/projects
+diff -y llvm/README.txt rvv-llvm-rvv-2018-11-01/README.txt
+This repository contains a fork of LLVM (see https://llvm.org	This repository contains a fork of LLVM (see https://llvm.org
+towards supporting the RISC-V vector extension (see		towards supporting the RISC-V vector extension (see
+https://github.com/riscv/riscv-v-spec/). This is very much a 	https://github.com/riscv/riscv-v-spec/). This is very much a 
+
+See `docs/RISCVVectorCodegen.md` for some documentation.	See `docs/RISCVVectorCodegen.md` for some documentation.
+
+These patches are regularly rebased to track LLVM trunk, whic	These patches are regularly rebased to track LLVM trunk, whic
+hashes will change. To mitigate the annoyance that causes, de	hashes will change. To mitigate the annoyance that causes, de
+happens on a branch named `rvv-<date>` where `<date>` is the 	happens on a branch named `rvv-<date>` where `<date>` is the 
+rebase, and on the next rebase this branch is left alone and 	rebase, and on the next rebase this branch is left alone and 
+created. The downside of this is that you will have to check 	created. The downside of this is that you will have to check 
+branches to find the latest version.				branches to find the latest version.
+diff -y llvm/RELEASE_TESTERS.TXT rvv-llvm-rvv-2018-11-01/RELEASE_TESTERS.TXT
+This file is a list of the people responsible for ensuring th	This file is a list of the people responsible for ensuring th
+environments get tested and validated during the release proc	environments get tested and validated during the release proc
+
+They will also, in conjunction with the release manager and t	They will also, in conjunction with the release manager and t
+accept patches into stable release branches, tag critical bug	accept patches into stable release branches, tag critical bug
+stoppers as well as make sure that no regressions were observ	stoppers as well as make sure that no regressions were observ
+targets since the last release.					targets since the last release.
+
+N: Ben Pope							N: Ben Pope
+E: benpope81@gmail.com						E: benpope81@gmail.com
+T: x86								T: x86
+O: Ubuntu							O: Ubuntu
+
+N: Sylvestre Ledru						N: Sylvestre Ledru
+E: sylvestre@debian.org						E: sylvestre@debian.org
+T: All supported archs Debian/Ubuntu			      |	T: x86
+O: Debian/Ubuntu packages				      |	O: Debian
+
+N: Nikola Smiljanic						N: Nikola Smiljanic
+E: popizdeh@gmail.com						E: popizdeh@gmail.com
+T: x86								T: x86
+O: OpenSUSE, Fedora						O: OpenSUSE, Fedora
+
+N: Brian Cain							N: Brian Cain
+E: brian.cain@gmail.com						E: brian.cain@gmail.com
+T: x86								T: x86
+O: SuSE Enterprise, CentOS					O: SuSE Enterprise, CentOS
+
+N: Bernhard Rosenkränzer					N: Bernhard Rosenkränzer
+E: bero@linaro.org						E: bero@linaro.org
+T: x86								T: x86
+O: OpenMandriva							O: OpenMandriva
+
+N: Dimitry Andric						N: Dimitry Andric
+E: dimitry@andric.com						E: dimitry@andric.com
+T: x86								T: x86
+O: FreeBSD							O: FreeBSD
+
+N: Hans Wennborg						N: Hans Wennborg
+E: hans@chromium.org						E: hans@chromium.org
+T: x86								T: x86
+O: Windows							O: Windows
+
+N: Diana Picus, Yvan Roux				      |	N: Diana Picus
+E: diana.picus@linaro.org, yvan.roux@linaro.org		      |	E: diana.picus@linaro.org
+T: ARM, AArch64							T: ARM, AArch64
+O: Linux							O: Linux
+Common subdirectories: llvm/resources and rvv-llvm-rvv-2018-11-01/resources
+Common subdirectories: llvm/runtimes and rvv-llvm-rvv-2018-11-01/runtimes
+Common subdirectories: llvm/test and rvv-llvm-rvv-2018-11-01/test
+Common subdirectories: llvm/tools and rvv-llvm-rvv-2018-11-01/tools
+Common subdirectories: llvm/unittests and rvv-llvm-rvv-2018-11-01/unittests
+Common subdirectories: llvm/utils and rvv-llvm-rvv-2018-11-01/utils
