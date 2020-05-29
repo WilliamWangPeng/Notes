@@ -1,1 +1,122 @@
-&ensp; &ensp;&ensp;  gdb 查看寄存器的值
+&ensp; &ensp;&ensp;  
+```  
+    breakpoint 1, 0x0000555558e892f0 in clang::FunctionDecl::getBuiltinID(bool) const ()  
+```
+Gitlab 中issue
+# gdb 查看寄存器的值
+info registers
+info all-registers
+
+（下面这两个暂时不知道如何使用）
+info registers reggroup …
+info registers regname …
+
+four standard register name：pc sp fp ps
+p/x $pc
+x/i $pc
+set $sp += 4
+
+2、GDB调试基本命令
+(gdb) start ： 运行程序
+(gdb) continue ： 从断点位置继续运行
+(gdb) r(un) ： 运行准备调试的程序，在它后面可以跟随发给该程序的任何参数，包括标准输入和标准输出说明符(<和>)和shell通配符（*、？、[、]）在内。
+(gdb) n(ext) ： 单步运行,逐过程调试，C Style
+(gdb) s(tep) ： 单步运行,逐语句调试，C Style
+(gdb) n(ext)i ： 单步运行,逐过程调试, asm Style
+(gdb) s(tep)i ： 单步运行,逐语句调试, asm Style
+finish ： 如果已经进入了某函数，而想退出该函数返回到它的调用函数中，可使用命令finish
+until ： 结束当前循环
+whatis ： 显示变量或函数类型
+quit ： 退出gdb
+
+3、布局和显示数据
+display /i $pc ：命令可以在调试时显示每条汇编命令。
+info win ：显示窗口的大小
+layout next ：切换到下一个布局模式
+layout prev ：切换到上一个布局模式
+layout src ：只显示源代码，退出方法为Ctrl+X+A
+layout asm ：只显示汇编代码
+layout split ：显示源代码和汇编代码
+layout regs ：增加寄存器内容显示
+focus cmd/src/asm/regs/next/prev ：切换当前窗口
+refresh /Ctrl+L ：刷新所有窗口
+tui reg next ：显示下一组寄存器
+tui reg system ：显示系统寄存器
+update ：更新源代码窗口和当前执行点
+print bb ：打印变量
+print $bb ：打印寄存器
+print gdb_test(22)：将以整数22作为参数调用 gdb_test() 函数
+print gdb_test(a)：将以变量 a 作为参数调用 gdb_test() 函数
+display 表达式：在单步运行时将非常有用，使用display命令设置一个表达式后，它将在每次单步进行指令后，紧接着输出被设置的表达式及值。如： display a
+watch 表达式：设置一个监视点，一旦被监视的“表达式”的值改变，gdb将强行终止正在被调试的程序。如： watch a
+//查看源代码
+list(l) ：查看当前代码附近的代码行
+list ：简记为 l ，其作用就是列出程序的源代码，默认每次显示10行。
+list 行号：将显示当前文件以“行号”为中心的前后10行代码，如：list 12
+list 函数名：将显示“函数名”所在函数的源代码，如：list main
+list ：不带参数，将接着上一次 list 命令的，输出下边的内容。
+
+4、查询运行信息
+where/bt ：当前运行的堆栈列表
+bt /backtrace/info stack ：显示当前调用堆栈
+bt full ：查看完整的调用堆栈信息，包括每个栈帧中所有变量和参数的信息。
+up/down ：改变堆栈显示的深度
+set args ：指定运行时的参数
+set args [arguments] ：传递命令行参数
+show args ：查看设置好的参数
+info program ：查看程序的是否在运行，进程号，被暂停的原因。
+
+5、设置断点和清除断点
+break ：在进入指定函数时停住。C++中可以使用class::function或function(type,type)格式来指定函数名。
+break ：在指定行号停住。
+break +offset / break -offset ：在当前行号的前面或后面的offset行停住。offiset为自然数。
+break filename：linenum ：在源文件filename的linenum行处停住。
+break filename：function ：在源文件filename的function函数的入口处停住。
+break *address ：在程序运行的内存地址处停住。
+break ：break命令没有参数时，表示在下一条指令处停住。
+break … if < condition > …可以是上述的参数，condition表示条件，在条件成立时停住。比如在循环体中，可以设置break if i==100，表示当i为100时停住程序。
+b fn1 if a＞b ：条件断点设置
+info break [n] ：显示当前gdb的断点信息
+delete [n] ：清除指定断点
+disable breakpoint [n] ：禁止指定断点
+enable breakpoint [n] ：允许指定断点
+
+参考自： https://linuxtools-rst.readthedocs.io/zh_CN/latest/tool/gdb.html
+
+以十进制的方式查看寄存器的值：
+
+p/d $pc
+1
+参考网址：https://ftp.gnu.org/old-gnu/Manuals/gdb-5.1.1/html_node/gdb_54.html
+
+技巧 ：交互模式下直接回车的作用是重复上一指令，对于单步调试非常方便；
+
+6、示例
+gdb ./demo
+(gdb) set args -i input.svac2
+(gdb) start
+(gdb) b 1201
+(gdb) info b
+(gdb) c
+(gdb) step
+(gdb) finish
+(gdb) layout src
+(gdb) list
+(gdb) print a
+(gdb) print $r0
+(gdb) q
+
+注意： 想要使用gdb调试程序，在使用gcc编译程序时需要加上 -g 选项 。
+一般调试崩溃程序时，是利用gdb+core dump文件进行调试分析的。 设置ulimit -c unlimited，之后运行程序，等生成core dump， 最后gdb core_file 进行调试分析，bt查看crash之后的调用栈，定位到crash在了哪个位置。关于Core dump分析，更多可参考：
+Linux中Core Dump分析
+关于Segmentation fault (core dumped)几个简单问题
+另外，针对segment fault的错误，可以采用linux下strace工具进行诊断。使用strace execfile，运行程序，出错时会显示哪个系统调用出错了。详细可以参看：Linux下系统调用调试分析工具：strace。
+
+https://blog.csdn.net/listener51/article/details/81950131
+https://www.cnblogs.com/qigaohua/p/6077790.html
+https://blog.csdn.net/yangzhongxuan/article/details/6901477
+https://blog.csdn.net/linuxheik/article/details/17380767
+http://blog.chinaunix.net/uid-20593827-id-1918499.html
+————————————————
+版权声明：本文为CSDN博主「贪吃的猫」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+原文链接：https://blog.csdn.net/xiaozi0221/article/details/90512542
