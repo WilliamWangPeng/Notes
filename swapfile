@@ -1,0 +1,23 @@
+swap被称为虚拟内存，它是通过物理磁盘而划分的虚拟内存，当物理内存不够用时，就会把物理内存的空间释放出一部分，供当前程序使用，释放的一部分是很长时间没有操作的程序，然后把它们放在swap分区里，并不是所有的都会放入。
+
+创建过程：
+
+　　首先在你认为主机合适的分区中创建一个文件，文件大小应该为你想设置swap的大小，想让文件有大小又没有数据，那就直接写0进去，
+
+　　例如我想创建一个文件放在/swap下，20G的swap，命令如下：
+
+　　　　mkdir /swap
+
+　　　　touch /swap/swapfile
+
+　　　　dd if=/dev/zero of=/swap/swapfile bs=1024000 count=20000
+
+　　然后在这个文件上建立swap分区，命令如下：
+
+　　　　mkswap /swap/swapfile
+
+　　最后激活swap
+
+　　　　swapon /swap/swapfile
+
+不需要reboot，可以直接free -h查看到
