@@ -1,0 +1,13 @@
+Linux中Swap（即：交换分区），类似bai于Windows的虚拟内存，du就是当内存不足的时候，把一部zhi分硬盘空dao间虚拟成内存使用,从而解决内存容量不足的情况。
+Swap也是比较方便的。您必须有root权限，过程中一定要很小心，一不小心就破坏了整个硬盘的数据。
+具体步骤如下：
+首先可以通过free -m 命令查询当前系统的物理内存和虚拟内存的使用情况。
+1. 创建一个swap文件：
+#mkdir swap //swap在此目录下
+#cd swap
+#sudo dd if=/dev/zero of=swapfile bs=1K count=2M //bs 为块大小,count为块的数量即分配1K*2M=2G swap
+#sudo mkswap swapfile //将生成的swapfile文件转换成Swap文件
+#sudo swapon swapfile //激活swap文件
+扩展：如果需要卸载这个swap文件则：#sudo swapoff swapfile
+如果需要一直保持这个swap大小，则把它追加写入/etc/fstab文件：swapPath(到文件名) /home/maxi/swap（挂载目录） swap defaults 0 0
+#sudo swapon -s //查看当前使用的swap文件名称、目录、大小、使用情况、优先级。
