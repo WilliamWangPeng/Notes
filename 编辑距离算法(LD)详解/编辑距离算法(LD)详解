@@ -1,0 +1,281 @@
+编辑距离算法(LD)详解
+编辑距离算法，是自然语言处理中的重要的算法之一。也是从多个相似的字符串组中提取字符串的有利的武器。编辑距离算法，也称为LD算法。LD算法就是自然语言处理(NLP)里的“编辑距离”算法。俄国科学家Levenshtein提出的，故又叫Levenshtein Distance （LD算法）
+
+【定义】设A和B是两个字符串。将字符串A转换为字符串B所用的最少字符操作数称为字符串A到字符串B的编辑距离。（ 这里所说的字符操作包括：删除一个字符，插入一个字符，修改一个字符）
+
+这个算法的原理，我其实并不清楚，但我知道如何利用矩阵来计算两个字符串的距离。举例说明如何用LD算法来解决实现工作中的问题。现以 计算GGATCGA 和GAATTCAGTTA的距离为例来说明。
+
+     GGATCGA 和GAATTCAGTTA在结构上非常的相似，我们肉眼观察到，通过下面的变换，可以让一个字符串变成另外一个字符串，其中，“-”表示添加。
+
+GGA-TC-G - -A
+GAATTCAGTTA
+
+大家想想，如果用简单的字符串匹配，能不能计算两个字符串的相似度呢?我想，估计是不行，因为这里涉及到一个字符串对齐的问题。哪么，我们如何采用LD算法来实现字符串相似度的比较呢
+
+我打算分二块介绍LD算法，第一块是求编辑距离，第二部分是回溯，找到两个字符串的差异。
+
+一 求编辑距离
+LD有下面几个性质：
+
+　　LD(A,A)=0
+
+　　LD(A,"")=Len(A)
+
+　　LD(A,B)=LD(B,A)
+
+　　0≤LD(A,B)≤Max(Len(A),Len(B))
+
+　　LD(A,B)=LD(Rev(A),Rev(B))
+
+　　LD(A+C,B+C)=LD(A,B)
+
+　　LD(A+B,A+C)=LD(B,C)
+
+　　LD(A,B)≤LD(A,C)+LD(B,C)（注：像不像“三角形，两边之和大于第三边”）
+
+　　LD(A+C,B)≤LD(A,B)+LD(B,C)
+
+ 
+
+　　为了讲解计算LD(A,B)，特给予以下几个定义
+
+　　A=a1a2……aN，表示A是由a1a2……aN这N个字符组成，Len(A)=N
+
+　　B=b1b2……bM，表示B是由b1b2……bM这M个字符组成，Len(B)=M
+
+　　定义LD(i,j)=LD(a1a2……ai,b1b2……bj)，其中0≤i≤N，0≤j≤M
+
+　　故：　　LD(N,M)=LD(A,B)
+
+　　　　　　LD(0,0)=0
+
+　　　　　　LD(0,j)=j
+
+　　　　　　LD(i,0)=i
+
+ 
+
+　　对于1≤i≤N，1≤j≤M，有公式一
+
+　　若ai=bj，则LD(i,j)=LD(i-1,j-1)   取矩阵对角的值
+
+　　若ai≠bj，则LD(i,j)=Min(LD(i-1,j-1),LD(i-1,j),LD(i,j-1))+1   在对角，左边，上边，取最小值+1
+
+
+
+A=GGA-TC-G - -A
+B=GAATTCAGTTA
+A串位于矩阵的左侧，B串位置矩阵的上方。一般来说，长度短的命名为A，长度长的命名为B。
+
+第一步如下：
+
+LD算法矩阵图
+ 	 	G	A	A	T	T	C	A	G	T	T	A
+ 	0	1	2	3	4	5	6	7	8	9	10	11
+G	1	0	1	2	3	4	5	6	7	8	9	10
+G	2	 	 	 	 	 	 	 	 	 	 	 
+A	3	 	 	 	 	 	 	 	 	 	 	 
+T	4	 	 	 	 	 	 	 	 	 	 	 
+C	5	 	 	 	 	 	 	 	 	 	 	 
+G	6	 	 	 	 	 	 	 	 	 	 	 
+A	7	 	 	 	 	 	 	 	 	 	 	 
+                           图一
+第二步，用第一步方法，填充其它的空格。
+
+LD算法矩阵图
+ 	 	G	A	A	T	T	C	A	G	T	T	A
+ 	0	1	2	3	4	5	6	7	8	9	10	11
+G	1	0	1	2	3	4	5	6	7	8	9	10
+G	2	1	1	2	3	4	5	6	6	7	8	9
+A	3	2	1	1	2	3	4	5	6	7	8	8
+T	4	3	2	2	1	2	3	4	5	6	7	8
+C	5	4	3	3	2	2	2	3	4	5	6	7
+G	6	5	4	4	3	3	3	3	3	4	5	6
+A	7	6	5	4	4	4	4	3	4	4	5	5
+                        图二
+最右下角的数字就为编辑距离了。
+
+二 回溯
+我们现在以图二为例，要说明如何回溯。
+
+第一步：定位在矩阵的右下角，也就是说从5开始。
+
+第二步：回溯单元格，至矩阵的左上角
+
+　　　　若ai=bj，则回溯到左上角单元格
+
+若ai≠bj，回溯到左上角、上边、左边中值最小的单元格，若有相同最小值的单元格，优先级按照左上角、上边、左边的顺序
+
+注意： 如果i或者j的值，有一个为0,则  左上，上边，都没有值，只能比较左边的值了
+
+回溯的结果，如图二 红色部分所示。
+
+第三步：根据回溯路径，写出匹配字串
+
+　　　　若回溯到左上角单元格，将ai添加到匹配字串A，将bj添加到匹配字串B
+
+　　　　若回溯到上边单元格，将ai添加到匹配字串A，将_添加到匹配字串B
+
+　　　　若回溯到左边单元格，将_添加到匹配字串A，将bj添加到匹配字串B
+
+　　　　搜索晚整个匹配路径，匹配字串也就完成了
+
+ A=GGA-TC-G - -A
+B=GAATTCAGTTA
+
+注意，ai 是会对A串来说的，bj 是会对B串来说的，最后的结果是倒序，我们要revert一下。
+现在给出c的代码：
+
+#include<stdio.h>
+#include <string.h>
+#include <malloc.h>
+ 
+void backtracking(int**, char* ,char*); //回溯，计算出如何通过其中一个字符串的变换，得到另外一个字体串
+int ** build_matrix(char* , char*); //求编辑距离,返回一个已经填充好的矩阵
+int trigle_min(int a, int b, int c); //求三个数的最小值
+int main()
+{
+  char* A = "GGATCGA";
+  char* B = "GAATTCAGTTA";
+  int** matrix=build_matrix(A, B);
+  backtracking(matrix, A, B); 
+  return 0;
+}
+ 
+//0 左上角 ,1上方,-1左边
+int way(int i_t, int j_t, int i, int j)
+{
+  if (i-i_t==1&&j-j_t==1) {
+    return 0;
+  } 
+  if (i-i_t==1&&j-j_t==0) {
+    return 1;
+  }
+  if (i-i_t==0&&j-j_t==1) {
+    return -1;
+  }
+}
+ 
+int** build_matrix(char* A, char* B)
+{
+  int m=strlen(A);
+  int n=strlen(B);
+  int** matrix = (int**)malloc(sizeof(int*)*(m+1));
+  int i,j;
+  for (i=0;i<m +1;i++) 
+  {
+    *(matrix+i)=(int*)malloc(sizeof(int)*(n+1));
+  }
+  matrix[0][0]=0;
+  for (i=1;i<n + 1;i++)
+  {
+    matrix[0][i] = i;
+  }
+  for (i=1;i<m + 1;i++)
+  {
+    matrix[i][0] = i;
+  }
+ 
+  for (i=1;i<m + 1;i++)
+  {
+    for (j=1;j<n + 1;j++)
+    {
+      if (*(A+i - 1) == *(B+j - 1))
+      {
+        matrix[i][j] = matrix[i-1][j-1];
+      } 
+      else 
+      {
+        matrix[i][j] = trigle_min(matrix[i-1][j], matrix[i][j-1], matrix[i-1][j-1]) + 1;
+      }
+    }
+  }
+  for (i=0;i<= m;i++)
+  {
+    for (j=0;j<= n;j++)
+    {
+      printf("%d ", matrix[i][j]);
+    }
+    printf("\n");
+  }
+  return matrix;
+}
+ 
+void backtracking(int** matrix, char* A, char *B) {
+  int m=strlen(A);
+  int n=strlen(B);
+  int i=m;
+  int j=n;
+  int max = m>n?m:n;
+  char* p = (char*)malloc(sizeof(char)*m);
+  char* q = (char*)malloc(sizeof(char)*m);
+  int k=0;
+  while (i>0 && j>0) 
+  {
+    if (*(A+i -1) == *(B +j -1))
+    {
+      *(p+k) = *(A+i-1); 
+      *(q+k) = *(B+j-1); 
+      --i;
+      --j;
+      ++k;
+    } else
+    {
+      int i_t=0;
+      int j_t=0;
+      if (matrix[i][j-1]>=matrix[i-1][j])
+      {
+        i_t=i-1;
+        j_t=j;
+      } else {
+        i_t=i;
+        j_t=j-1;
+      } 
+      if (matrix[i_t][j_t]>=matrix[i-1][j-1])
+      {
+        i_t=i-1;
+        j_t=j-1;
+      } 
+/////////      
+      int w = way(i_t, j_t, i,j);
+      if (w==0)  {
+        *(p+k) = *(A+i-1); 
+        *(q+k) = *(B+j-1); 
+      } else if (w == -1) {
+        *(p+k) = '-';
+        *(q+k) = *(B+j-1);
+      } else {
+        *(p+k) = *(A+i-1);
+        *(q+k) = '-';
+      }
+      ++k;
+      i=i_t;
+      j=j_t;
+    }   
+  }
+  if (i==0) {
+     *(q+k) = *(B+j-1);
+     *(q+k) = '-';
+    
+  } else {
+    *(p+k) = *(A+i-1);
+    *(q+k) = '-';
+ 
+  }
+  for (i=max-1;i>=0;i--) {
+    printf("%c",*(p+i));
+  }
+  printf("\n");
+  for (i=max-1;i>=0;i--) {
+    printf("%c",*(q+i));
+  }
+}
+ 
+int trigle_min(int a, int b, int c) 
+{
+  int min = a<b?a:b;
+  return min<c?min:c;
+}
+————————————————
+版权声明：本文为CSDN博主「jimmy_游戏人生」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+原文链接：https://blog.csdn.net/majinfei/java/article/details/16979049
