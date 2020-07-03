@@ -38,3 +38,22 @@ joy2myself committed on 16 Oct 2019
 https://github.com/riscv/riscv-isa-sim/commit/4051af5ce64a78c2d032ba7b0452b8bb929ac281
 8 rvv: support new mstatus.vs field defined in v0.8
 
+https://github.com/riscv/riscv-binutils-gdb/blob/rvv-0.9.x/include/opcode/riscv-opc.h
+9 riscv-binutils-gdb
+
+https://www.cnblogs.com/javaIOException/p/7525828.html
+10 qemu模拟器下编译运行基于riscv指令集的Linux操作系统
+ 
+ https://en.wikipedia.org/wiki/Row-_and_column-major_order
+ 11 Row- and column-major order
+ 
+ https://reviews.llvm.org/D55341
+ 12 [RISCV] Support assembling TLS add and associated modifiers
+ClosedPublic
+
+https://blog.csdn.net/xiewenhao12/article/details/52936210
+13 c=vcombine_s32(a,b);
+
+https://www.jianshu.com/p/9e8d823f3cb7
+14 在 rocket-chip 中对 opcodes 进行定制化的过程主要是在 riscv-tools/riscv-opcodes 目录中：
+
