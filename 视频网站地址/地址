@@ -25,3 +25,16 @@ https://www.youtube.com/watch?v=qIsnBsBNJXU
 https://www.youtube.com/watch?v=F_Kza6fdkSU
 6 10 Years of Linux Security - A Report Card
 
+https://github.com/isrc-cas/rvv-llvm/commit/fc14172539eb1747cb4f92e47d928f0fbc4902b2
+7 apply patch from branch rvv-2018-11-01 of rvv-llvm
+
+https://github.com/rkruppe/rvv-llvm.git
+commit logs of this patch are saved in rvv-2018-11-01.log
+ rvv-iscas
+@joy2myself
+joy2myself committed on 16 Oct 2019 
+1 parent 92e0029 commit fc14172539eb1747cb4f92e47d928f0fbc4902b2
+
+https://github.com/riscv/riscv-isa-sim/commit/4051af5ce64a78c2d032ba7b0452b8bb929ac281
+8 rvv: support new mstatus.vs field defined in v0.8
+
