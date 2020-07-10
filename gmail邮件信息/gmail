@@ -11,8 +11,13 @@ llvm-dev 家族
 你来给RVV每个人开个issue，要求定于 
 
 cfe-dev   cfe-dev@lists.llvm.org
+https://lists.llvm.org/mailman/listinfo/cfe-dev
+
 llvm-dev  llvm-dev@lists.llvm.org
+https://lists.llvm.org/cgi-bin/mailman/listinfo/llvm-dev
 这两个LLVM的邮件列表
+
+
 你要用 gmail 加入
 
 https://lists.llvm.org/cgi-bin/mailman/listinfo/llvm-dev
