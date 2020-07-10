@@ -12,6 +12,19 @@ llvm-dev 家族
 cfe-dev   cfe-dev@lists.llvm.org
 llvm-dev  llvm-dev@lists.llvm.org
 这两个LLVM的邮件列表
+你要用 gmail 加入
+
+https://lists.llvm.org/cgi-bin/mailman/listinfo/llvm-dev
+
+（因为邮件会很多，最好用gmail）
+
+然后发邮件
+
+TO
+selliott@lowrisc.org 
+和 llvm-dev 邮件列表
+
+注意，禁止使用 HTML 格式，使用 纯文本 格式发送
 
 sw-dev
 这个Google的邮件列表
