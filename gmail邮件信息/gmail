@@ -9,15 +9,21 @@ williamwangpeng5@gmail.com （和llvm联系）
 llvm-dev 家族
 你来给RVV每个人开个issue，要求定于 
 
-cfe-dev
-llvm-dev
+cfe-dev   cfe-dev@lists.llvm.org
+llvm-dev  llvm-dev@lists.llvm.org
 这两个LLVM的邮件列表
-和
+
 sw-dev
 这个Google的邮件列表
+You received this message because you are subscribed to the Google Groups "RISC-V SW Dev" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to sw-dev+unsubscribe@groups.riscv.org.
+To view this discussion on the web visit 
+https://groups.google.com/a/groups.riscv.org/d/msgid/sw-dev/79a519f8-8c14-438d-a677-f9aa61578897o%40groups.riscv.org.
+
+在google设置中修改邮件列表
+https://groups.google.com/a/groups.riscv.org/forum/#!myforums
 
 你要用 gmail 加入
-
 https://lists.llvm.org/cgi-bin/mailman/listinfo/llvm-dev
 
 （因为邮件会很多，最好用gmail）
